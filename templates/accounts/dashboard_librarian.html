@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+
+{% block title %}Librarian Dashboard - Smart University Library{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="dashboard-header">
+        <div>
+            <h1>Librarian Dashboard</h1>
+            <p class="dashboard-subtitle">Lending Administration Hub | Welcome back, <strong>{{ user.first_name|default:user.username }}</strong>!</p>
+        </div>
+        <div>
+            <span class="role-badge librarian">Librarian Account</span>
+        </div>
+    </div>
+
+    <div class="dashboard-grid">
+        <!-- Widget: Active checkouts -->
+        <div class="dashboard-card">
+            <h3>Active Loans</h3>
+            <div class="stat-number">142</div>
+            <p class="activity-meta">Books currently out in circulation</p>
+        </div>
+
+        <!-- Widget: Overdues -->
+        <div class="dashboard-card">
+            <h3>Overdue Copies</h3>
+            <div class="stat-number" style="color: var(--error-text);">12</div>
+            <p class="activity-meta">Lending periods exceeded</p>
+        </div>
+
+        <!-- Widget: Registered Library Students -->
+        <div class="dashboard-card">
+            <h3>Registered Members</h3>
+            <div class="stat-number">324</div>
+            <p class="activity-meta">Active student accounts</p>
+        </div>
+    </div>
+
+    <div class="dashboard-grid" style="margin-top: 1.5rem;">
+        <!-- Card: Librarian Quick Tasks -->
+        <div class="dashboard-card">
+            <h3>Quick Catalog Operations</h3>
+            <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1rem;">
+                <a class="btn btn-secondary" style="text-align: left; padding: 0.6rem 1rem;" href="#">+ Add New Book to Catalog</a>
+                <a class="btn btn-secondary" style="text-align: left; padding: 0.6rem 1rem;" href="#">&rarr; Issue Book to Student</a>
+                <a class="btn btn-secondary" style="text-align: left; padding: 0.6rem 1rem;" href="#">&larr; Process Book Return</a>
+                <a class="btn btn-secondary" style="text-align: left; padding: 0.6rem 1rem;" href="#">&iexcl; Run Overdue Audits</a>
+            </div>
+        </div>
+
+        <!-- Card: Recent Circulation Log -->
+        <div class="dashboard-card" style="grid-column: span 2;">
+            <h3>Recent Lending Activity Log</h3>
+            <ul class="activity-list">
+                <li class="activity-item">
+                    <div><strong>John Doe (Student ID: CS2024-089)</strong> borrowed <em>"Introduction to Algorithms"</em></div>
+                    <div class="activity-meta">Issued by System | 2026-07-16 10:42 AM</div>
+                </li>
+                <li class="activity-item">
+                    <div><strong>Jane Smith (Student ID: ME2023-112)</strong> returned <em>"Design Patterns"</em></div>
+                    <div class="activity-meta">Received and checked by Librarian | 2026-07-16 09:15 AM</div>
+                </li>
+                <li class="activity-item">
+                    <div><strong>Alice Cooper (Student ID: EE2025-055)</strong> borrowed <em>"Clean Code"</em></div>
+                    <div class="activity-meta">Issued by System | 2026-07-15 04:30 PM</div>
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

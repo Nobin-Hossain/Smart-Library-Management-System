@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Smart University Library{% endblock %}</title>
+    
+    <!-- Import elegant Outfit and Inter Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Load custom static CSS -->
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+</head>
+<body>
+
+    <!-- Simple, Minimalistic Navbar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="{% if user.is_authenticated %}{% if user.role == 'student' %}{% url 'student_dashboard' %}{% elif user.role == 'librarian' %}{% url 'librarian_dashboard' %}{% else %}{% url 'admin_dashboard' %}{% endif %}{% else %}{% url 'login' %}{% endif %}" class="nav-logo">
+                SmartLibrary
+            </a>
+            
+            <div class="nav-links">
+                {% if user.is_authenticated %}
+                    <span class="user-greeting">Hello, <strong>{{ user.username }}</strong> <span class="role-badge {{ user.role }}">{{ user.get_role_display }}</span></span>
+                    
+                    {% if user.role == 'student' %}
+                        <a href="{% url 'student_dashboard' %}" class="nav-item">Dashboard</a>
+                    {% elif user.role == 'librarian' %}
+                        <a href="{% url 'librarian_dashboard' %}" class="nav-item">Dashboard</a>
+                    {% elif user.role == 'admin' %}
+                        <a href="{% url 'admin_dashboard' %}" class="nav-item">Dashboard</a>
+                    {% endif %}
+                    
+                    <a href="{% url 'logout' %}" class="nav-item nav-btn-logout">Logout</a>
+                {% else %}
+                    <a href="{% url 'login' %}" class="nav-item">Login</a>
+                    <a href="{% url 'register' %}" class="nav-item nav-btn-primary">Register</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <!-- Django Messages (Success/Error Alerts) -->
+    <div class="alert-container">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">
+                    <span>{{ message }}</span>
+                    <button class="close-alert" onclick="this.parentElement.remove()">&times;</button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    <!-- Simple Footer -->
+    <footer class="footer">
+        <p>&copy; 2026 Smart University Library Management System. All rights reserved.</p>
+    </footer>
+
+</body>
+</html>

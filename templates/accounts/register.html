@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+
+{% block title %}Register - Smart University Library{% endblock %}
+
+{% block content %}
+<div class="auth-card">
+    <div class="auth-header">
+        <h2>Library Registration</h2>
+        <p>Create an account to access resources</p>
+    </div>
+
+    <form method="POST" action="{% url 'register' %}" novalidate>
+        {% csrf_token %}
+
+        <!-- Full Name -->
+        <div class="form-group">
+            <label for="{{ form.full_name.id_for_label }}">Full Name</label>
+            {{ form.full_name }}
+            {% if form.full_name.errors %}
+                <ul class="form-errors">
+                    {% for error in form.full_name.errors %}
+                        <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        </div>
+
+        <!-- Email -->
+        <div class="form-group">
+            <label for="{{ form.email.id_for_label }}">University Email</label>
+            {{ form.email }}
+            {% if form.email.errors %}
+                <ul class="form-errors">
+                    {% for error in form.email.errors %}
+                        <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        </div>
+
+        <!-- Username -->
+        <div class="form-group">
+            <label for="{{ form.username.id_for_label }}">Username</label>
+            {{ form.username }}
+            {% if form.username.errors %}
+                <ul class="form-errors">
+                    {% for error in form.username.errors %}
+                        <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        </div>
+
+        <!-- Role -->
+        <div class="form-group">
+            <label for="role_select">Select Your Role</label>
+            {{ form.role }}
+            {% if form.role.errors %}
+                <ul class="form-errors">
+                    {% for error in form.role.errors %}
+                        <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        </div>
+
+        <!-- Student ID & Department (Conditional Wrapper) -->
+        <div id="student_fields_wrapper" class="hidden">
+            <div class="form-group">
+                <label for="{{ form.student_id.id_for_label }}">Student ID</label>
+                {{ form.student_id }}
+                {% if form.student_id.errors %}
+                    <ul class="form-errors">
+                        {% for error in form.student_id.errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.department.id_for_label }}">Department</label>
+                {{ form.department }}
+                {% if form.department.errors %}
+                    <ul class="form-errors">
+                        {% for error in form.department.errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Password -->
+        <div class="form-group">
+            <label for="{{ form.password.id_for_label }}">Password</label>
+            {{ form.password }}
+            <p class="form-help">{{ form.password.help_text }}</p>
+            {% if form.password.errors %}
+                <ul class="form-errors">
+                    {% for error in form.password.errors %}
+                        <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        </div>
+
+        <!-- Confirm Password -->
+        <div class="form-group">
+            <label for="{{ form.confirm_password.id_for_label }}">Confirm Password</label>
+            {{ form.confirm_password }}
+            {% if form.confirm_password.errors %}
+                <ul class="form-errors">
+                    {% for error in form.confirm_password.errors %}
+                        <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        </div>
+
+        <button type="submit" class="btn btn-primary">Create Account</button>
+    </form>
+
+    <div class="auth-footer">
+        <p>Already have an account? <a href="{% url 'login' %}">Log in here</a></p>
+    </div>
+</div>
+
+<!-- Simple Vanilla JS to toggle student fields based on selected role -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const roleSelect = document.getElementById('role_select');
+        const studentWrapper = document.getElementById('student_fields_wrapper');
+
+        function toggleStudentFields() {
+            if (roleSelect && roleSelect.value === 'student') {
+                studentWrapper.classList.remove('hidden');
+            } else {
+                studentWrapper.classList.add('hidden');
+            }
+        }
+
+        if (roleSelect && studentWrapper) {
+            roleSelect.addEventListener('change', toggleStudentFields);
+            // Run initially in case of page reload with validation errors
+            toggleStudentFields();
+        }
+    });
+</script>
+{% endblock %}

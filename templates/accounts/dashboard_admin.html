@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+
+{% block title %}Admin Dashboard - Smart University Library{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="dashboard-header">
+        <div>
+            <h1>Library Admin Console</h1>
+            <p class="dashboard-subtitle">Global System Settings & Management | Welcome, <strong>{{ user.username }}</strong>!</p>
+        </div>
+        <div>
+            <span class="role-badge admin">Administrator Account</span>
+        </div>
+    </div>
+
+    <div class="dashboard-grid">
+        <!-- Widget: Total registered users -->
+        <div class="dashboard-card">
+            <h3>Total Users Registered</h3>
+            <div class="stat-number">350</div>
+            <p class="activity-meta">Students, Librarians, and Admins</p>
+        </div>
+
+        <!-- Widget: Database status -->
+        <div class="dashboard-card">
+            <h3>Database Status</h3>
+            <div class="stat-number" style="color: var(--success-text);">Healthy</div>
+            <p class="activity-meta">SQLite database connection stable</p>
+        </div>
+
+        <!-- Widget: Branches -->
+        <div class="dashboard-card">
+            <h3>Connected Branches</h3>
+            <div class="stat-number">3</div>
+            <p class="activity-meta">Campus libraries configured</p>
+        </div>
+    </div>
+
+    <div class="dashboard-grid" style="margin-top: 1.5rem;">
+        <!-- Card: System Logs -->
+        <div class="dashboard-card" style="grid-column: span 2;">
+            <h3>System Status & Logs</h3>
+            <ul class="activity-list">
+                <li class="activity-item">
+                    <div style="font-family: monospace; font-size: 0.85rem;">[2026-07-16 14:02:11] INFO: Applied 19 database migrations successfully.</div>
+                </li>
+                <li class="activity-item">
+                    <div style="font-family: monospace; font-size: 0.85rem;">[2026-07-16 11:22:50] WARNING: staticfiles cache cleared.</div>
+                </li>
+                <li class="activity-item">
+                    <div style="font-family: monospace; font-size: 0.85rem;">[2026-07-16 09:00:03] SUCCESS: Custom User authentication models mapping loaded.</div>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Card: Admin Tools -->
+        <div class="dashboard-card">
+            <h3>System Control Panel</h3>
+            <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1rem;">
+                <a class="btn btn-primary" href="{% url 'admin:index' %}" target="_blank">Open Django Admin Panel</a>
+                <button class="btn btn-secondary" disabled>Backup Library DB</button>
+                <button class="btn btn-secondary" disabled>Configure API Keys</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
