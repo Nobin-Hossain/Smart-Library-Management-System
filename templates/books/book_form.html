@@ -1,0 +1,345 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ form_title }} — Smart University Library{% endblock %}
+
+{% block content %}
+<div class="book-form-page">
+
+    <!-- Breadcrumb -->
+    <nav class="bk-breadcrumb" aria-label="breadcrumb">
+        <a href="{% url 'librarian_dashboard' %}" class="bk-breadcrumb-link">← Back to Dashboard</a>
+    </nav>
+
+    <!-- Form Card -->
+    <div class="bk-form-card">
+
+        <!-- Card Header -->
+        <div class="bk-form-header">
+            <div class="bk-form-icon">📖</div>
+            <div>
+                <h1 class="bk-form-title">{{ form_title }}</h1>
+                <p class="bk-form-subtitle">
+                    {% if book %}
+                        Update the details for this catalog entry.
+                    {% else %}
+                        Fill in all fields to add the new book to the catalog.
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+
+        <!-- The Form -->
+        <form method="POST" novalidate id="book-form">
+            {% csrf_token %}
+
+            <!-- Non-field errors -->
+            {% if form.non_field_errors %}
+            <div class="bk-form-errors">
+                {% for error in form.non_field_errors %}
+                    <p class="bk-error-item">⚠ {{ error }}</p>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="bk-fields-grid">
+
+                <!-- Title -->
+                <div class="bk-field-group bk-span-2" id="field-title">
+                    <label for="{{ form.title.id_for_label }}" class="bk-label">
+                        Title <span class="bk-required">*</span>
+                    </label>
+                    {{ form.title }}
+                    {% if form.title.errors %}
+                        <ul class="bk-field-errors">
+                            {% for e in form.title.errors %}<li>{{ e }}</li>{% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
+
+                <!-- Author -->
+                <div class="bk-field-group" id="field-author">
+                    <label for="{{ form.author.id_for_label }}" class="bk-label">
+                        Author <span class="bk-required">*</span>
+                    </label>
+                    {{ form.author }}
+                    {% if form.author.errors %}
+                        <ul class="bk-field-errors">
+                            {% for e in form.author.errors %}<li>{{ e }}</li>{% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
+
+                <!-- ISBN -->
+                <div class="bk-field-group" id="field-isbn">
+                    <label for="{{ form.isbn.id_for_label }}" class="bk-label">
+                        ISBN <span class="bk-required">*</span>
+                    </label>
+                    {{ form.isbn }}
+                    {% if form.isbn.errors %}
+                        <ul class="bk-field-errors">
+                            {% for e in form.isbn.errors %}<li>{{ e }}</li>{% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
+
+                <!-- Category -->
+                <div class="bk-field-group" id="field-category">
+                    <label for="{{ form.category.id_for_label }}" class="bk-label">
+                        Category <span class="bk-required">*</span>
+                    </label>
+                    {{ form.category }}
+                    {% if form.category.errors %}
+                        <ul class="bk-field-errors">
+                            {% for e in form.category.errors %}<li>{{ e }}</li>{% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
+
+                <!-- Publisher -->
+                <div class="bk-field-group bk-span-2" id="field-publisher">
+                    <label for="{{ form.publisher.id_for_label }}" class="bk-label">
+                        Publisher <span class="bk-required">*</span>
+                    </label>
+                    {{ form.publisher }}
+                    {% if form.publisher.errors %}
+                        <ul class="bk-field-errors">
+                            {% for e in form.publisher.errors %}<li>{{ e }}</li>{% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
+
+                <!-- Price -->
+                <div class="bk-field-group" id="field-price">
+                    <label for="{{ form.price.id_for_label }}" class="bk-label">
+                        Price (৳) <span class="bk-required">*</span>
+                    </label>
+                    {{ form.price }}
+                    {% if form.price.errors %}
+                        <ul class="bk-field-errors">
+                            {% for e in form.price.errors %}<li>{{ e }}</li>{% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
+
+                <!-- Total Copies -->
+                <div class="bk-field-group" id="field-total-copies">
+                    <label for="{{ form.total_copies.id_for_label }}" class="bk-label">
+                        Total Copies <span class="bk-required">*</span>
+                    </label>
+                    {{ form.total_copies }}
+                    {% if form.total_copies.errors %}
+                        <ul class="bk-field-errors">
+                            {% for e in form.total_copies.errors %}<li>{{ e }}</li>{% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
+
+                <!-- Available Copies -->
+                <div class="bk-field-group" id="field-available-copies">
+                    <label for="{{ form.available_copies.id_for_label }}" class="bk-label">
+                        Available Copies <span class="bk-required">*</span>
+                    </label>
+                    {{ form.available_copies }}
+                    <p class="bk-help">Must not exceed Total Copies.</p>
+                    {% if form.available_copies.errors %}
+                        <ul class="bk-field-errors">
+                            {% for e in form.available_copies.errors %}<li>{{ e }}</li>{% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
+
+            </div><!-- /.bk-fields-grid -->
+
+            <!-- Form Footer -->
+            <div class="bk-form-footer">
+                <a href="{% url 'librarian_dashboard' %}" class="bk-btn-cancel" id="cancel-btn">Cancel</a>
+                <button type="submit" class="bk-btn-submit" id="submit-btn">
+                    {{ submit_label }}
+                </button>
+            </div>
+
+        </form>
+    </div><!-- /.bk-form-card -->
+
+</div><!-- /.book-form-page -->
+
+
+<style>
+/* ---- Page layout ---- */
+.book-form-page {
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+/* ---- Breadcrumb ---- */
+.bk-breadcrumb-link {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-weight: 500;
+    transition: var(--transition);
+}
+.bk-breadcrumb-link:hover { color: var(--primary-color); }
+
+/* ---- Card ---- */
+.bk-form-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    overflow: hidden;
+}
+
+/* ---- Header ---- */
+.bk-form-header {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    padding: 1.75rem 2rem;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    color: #fff;
+}
+.bk-form-icon {
+    font-size: 2.5rem;
+    flex-shrink: 0;
+}
+.bk-form-title {
+    font-size: 1.5rem;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 0.2rem;
+}
+.bk-form-subtitle {
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.65);
+}
+
+/* ---- Non-field errors ---- */
+.bk-form-errors {
+    margin: 1.5rem 2rem 0;
+    padding: 0.85rem 1rem;
+    background: var(--error-bg);
+    border: 1px solid rgba(239,68,68,0.2);
+    border-radius: var(--radius);
+}
+.bk-error-item {
+    color: var(--error-text);
+    font-size: 0.875rem;
+}
+
+/* ---- Grid ---- */
+.bk-fields-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+    padding: 2rem;
+}
+.bk-span-2 { grid-column: span 2; }
+
+/* ---- Field ---- */
+.bk-field-group { display: flex; flex-direction: column; gap: 0.35rem; }
+.bk-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--secondary-color);
+    letter-spacing: 0.01em;
+}
+.bk-required { color: #ef4444; }
+
+/* Override default form-input styles from Django widget */
+.bk-field-group input,
+.bk-field-group select,
+.bk-field-group .form-input {
+    padding: 0.65rem 0.9rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    font-family: inherit;
+    font-size: 0.9rem;
+    background: var(--bg-color);
+    color: var(--text-main);
+    transition: var(--transition);
+    width: 100%;
+}
+.bk-field-group input:focus,
+.bk-field-group select:focus {
+    outline: none;
+    border-color: #6366f1;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+}
+
+.bk-help {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: -0.1rem;
+}
+.bk-field-errors {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.bk-field-errors li {
+    font-size: 0.78rem;
+    color: var(--error-text);
+    margin-top: 0.2rem;
+}
+
+/* ---- Footer ---- */
+.bk-form-footer {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1.25rem 2rem;
+    border-top: 1px solid var(--border-color);
+    background: #f8fafc;
+}
+.bk-btn-cancel {
+    padding: 0.65rem 1.5rem;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--secondary-color);
+    text-decoration: none;
+    cursor: pointer;
+    transition: var(--transition);
+}
+.bk-btn-cancel:hover {
+    background: var(--bg-color);
+    color: var(--primary-color);
+}
+.bk-btn-submit {
+    padding: 0.65rem 1.75rem;
+    background: #10b981;
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+}
+.bk-btn-submit:hover {
+    background: #059669;
+    box-shadow: 0 4px 12px rgba(16,185,129,0.3);
+    transform: translateY(-1px);
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 640px) {
+    .bk-fields-grid { grid-template-columns: 1fr; padding: 1.25rem; }
+    .bk-span-2 { grid-column: span 1; }
+    .bk-form-header { padding: 1.25rem; }
+    .bk-form-footer { padding: 1rem 1.25rem; }
+}
+</style>
+{% endblock %}

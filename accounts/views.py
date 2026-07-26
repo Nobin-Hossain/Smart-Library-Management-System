@@ -118,13 +118,6 @@ def student_dashboard(request):
     """
     return render(request, 'accounts/dashboard_student.html')
 
-@login_required
-@role_required('librarian')
-def librarian_dashboard(request):
-    """
-    Librarian dashboard view containing books & user tracking statistics.
-    """
-    return render(request, 'accounts/dashboard_librarian.html')
 
 @login_required
 @role_required('admin')

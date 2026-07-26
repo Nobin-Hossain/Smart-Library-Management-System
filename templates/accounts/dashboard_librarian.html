@@ -1,72 +1,1046 @@
 {% extends 'base.html' %}
 
-{% block title %}Librarian Dashboard - Smart University Library{% endblock %}
+{% block title %}Librarian Dashboard — Smart University Library{% endblock %}
 
 {% block content %}
-<div class="dashboard-container">
-    <div class="dashboard-header">
+<div class="lib-dashboard">
+
+    <!-- ───────────────── Page Header ───────────────── -->
+    <div class="lib-header">
         <div>
-            <h1>Librarian Dashboard</h1>
-            <p class="dashboard-subtitle">Lending Administration Hub | Welcome back, <strong>{{ user.first_name|default:user.username }}</strong>!</p>
+            <h1 class="lib-title">Librarian Dashboard</h1>
+            <p class="lib-subtitle">
+                Book Catalog &amp; Library Management &nbsp;·&nbsp;
+                Welcome back, <strong>{{ user.first_name|default:user.username }}</strong>!
+            </p>
         </div>
-        <div>
-            <span class="role-badge librarian">Librarian Account</span>
-        </div>
+        <span class="role-badge librarian">Librarian Account</span>
     </div>
 
-    <div class="dashboard-grid">
-        <!-- Widget: Active checkouts -->
-        <div class="dashboard-card">
-            <h3>Active Loans</h3>
-            <div class="stat-number">142</div>
-            <p class="activity-meta">Books currently out in circulation</p>
-        </div>
+    <!-- ───────────────── Stat Cards ───────────────── -->
+    <div class="lib-stats-grid">
 
-        <!-- Widget: Overdues -->
-        <div class="dashboard-card">
-            <h3>Overdue Copies</h3>
-            <div class="stat-number" style="color: var(--error-text);">12</div>
-            <p class="activity-meta">Lending periods exceeded</p>
-        </div>
+        <button class="lib-stat-card stat-users stat-clickable" id="open-members-modal"
+            title="Click to view all registered members" aria-haspopup="dialog">
+            <div class="stat-body">
+                <div class="stat-value">{{ total_users }}</div>
+                <div class="stat-label">Total Registered Users</div>
+                <div class="stat-hint">Click to view members ↗</div>
+            </div>
+        </button>
 
-        <!-- Widget: Registered Library Students -->
-        <div class="dashboard-card">
-            <h3>Registered Members</h3>
-            <div class="stat-number">324</div>
-            <p class="activity-meta">Active student accounts</p>
-        </div>
-    </div>
-
-    <div class="dashboard-grid" style="margin-top: 1.5rem;">
-        <!-- Card: Librarian Quick Tasks -->
-        <div class="dashboard-card">
-            <h3>Quick Catalog Operations</h3>
-            <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1rem;">
-                <a class="btn btn-secondary" style="text-align: left; padding: 0.6rem 1rem;" href="#">+ Add New Book to Catalog</a>
-                <a class="btn btn-secondary" style="text-align: left; padding: 0.6rem 1rem;" href="#">&rarr; Issue Book to Student</a>
-                <a class="btn btn-secondary" style="text-align: left; padding: 0.6rem 1rem;" href="#">&larr; Process Book Return</a>
-                <a class="btn btn-secondary" style="text-align: left; padding: 0.6rem 1rem;" href="#">&iexcl; Run Overdue Audits</a>
+        <div class="lib-stat-card stat-available">
+            <div class="stat-body">
+                <div class="stat-value">{{ total_available_books }}</div>
+                <div class="stat-label">Total Available Copies</div>
             </div>
         </div>
 
-        <!-- Card: Recent Circulation Log -->
-        <div class="dashboard-card" style="grid-column: span 2;">
-            <h3>Recent Lending Activity Log</h3>
-            <ul class="activity-list">
-                <li class="activity-item">
-                    <div><strong>John Doe (Student ID: CS2024-089)</strong> borrowed <em>"Introduction to Algorithms"</em></div>
-                    <div class="activity-meta">Issued by System | 2026-07-16 10:42 AM</div>
-                </li>
-                <li class="activity-item">
-                    <div><strong>Jane Smith (Student ID: ME2023-112)</strong> returned <em>"Design Patterns"</em></div>
-                    <div class="activity-meta">Received and checked by Librarian | 2026-07-16 09:15 AM</div>
-                </li>
-                <li class="activity-item">
-                    <div><strong>Alice Cooper (Student ID: EE2025-055)</strong> borrowed <em>"Clean Code"</em></div>
-                    <div class="activity-meta">Issued by System | 2026-07-15 04:30 PM</div>
-                </li>
-            </ul>
+        <div class="lib-stat-card stat-borrowed">
+            <div class="stat-body">
+                <div class="stat-value">{{ total_borrowed_books }}</div>
+                <div class="stat-label">Total Borrowed Copies</div>
+            </div>
         </div>
+
     </div>
-</div>
+
+    <!-- ───────────────── Action Bar ───────────────── -->
+    <div class="lib-action-bar">
+        <!-- Search Form -->
+        <form method="GET" action="" class="lib-search-form" id="book-search-form">
+            <div class="search-input-wrap">
+                <input type="text" name="q" id="book-search-input" class="lib-search-input"
+                    placeholder="Search by title, author, category or ISBN…" value="{{ query }}" autocomplete="off">
+                {% if query %}
+                <a href="{% url 'librarian_dashboard' %}" class="search-clear" title="Clear search">✕</a>
+                {% endif %}
+            </div>
+            <button type="submit" class="btn-search">Search</button>
+        </form>
+
+        <!-- Add Book Button -->
+        <a href="{% url 'book_create' %}" class="btn-add-book" id="add-book-btn">
+            + Add New Book
+        </a>
+    </div>
+
+    <!-- Search results feedback -->
+    {% if query %}
+    <p class="search-feedback">
+        Showing <strong>{{ books|length }}</strong> result{{ books|length|pluralize }} for "<em>{{ query }}</em>"
+    </p>
+    {% endif %}
+
+    <!-- ───────────────── Book Management Table ───────────────── -->
+    <div class="lib-table-card">
+        {% if books %}
+        <div class="lib-table-wrap">
+            <table class="lib-table" id="books-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Title</th>
+                        <th>Author</th>
+                        <th>Category</th>
+                        <th>ISBN</th>
+                        <th>Copies</th>
+                        <th>Price</th>
+                        <th class="actions-col">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for book in books %}
+                    <tr class="book-row" id="book-row-{{ book.pk }}">
+                        <td class="book-id">{{ forloop.counter }}</td>
+                        <td class="book-title">
+                            <span class="title-text">{{ book.title }}</span>
+                            <span class="publisher-text">{{ book.publisher }}</span>
+                        </td>
+                        <td>{{ book.author }}</td>
+                        <td>
+                            <span class="category-chip">{{ book.category }}</span>
+                        </td>
+                        <td class="isbn-text">{{ book.isbn }}</td>
+                        <td>
+                            <div class="copies-wrap">
+                                <span class="copies-available">{{ book.available_copies }}</span>
+                                <span class="copies-sep">/</span>
+                                <span class="copies-total">{{ book.total_copies }}</span>
+                            </div>
+                            {% if book.available_copies == 0 %}
+                            <span class="badge-unavailable">Out of stock</span>
+                            {% elif book.available_copies < book.total_copies %} <span class="badge-partial">Partially
+                                available</span>
+                                {% else %}
+                                <span class="badge-available">In stock</span>
+                                {% endif %}
+                        </td>
+                        <td class="price-text">৳{{ book.price }}</td>
+                        <td class="actions-col">
+                            <div class="action-btns">
+                                <a href="{% url 'book_update' book.pk %}" class="btn-action btn-edit" title="Edit book"
+                                    id="edit-book-{{ book.pk }}">
+                                    Edit
+                                </a>
+                                <a href="{% url 'book_delete' book.pk %}" class="btn-action btn-delete"
+                                    title="Delete book" id="delete-book-{{ book.pk }}">
+                                    Delete
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="lib-empty-state" id="empty-state">
+            {% if query %}
+            <h3>No books found for "{{ query }}"</h3>
+            <p>Try adjusting your search terms or <a href="{% url 'librarian_dashboard' %}">clear the filter</a>.</p>
+            {% else %}
+            <h3>No books in the catalog yet</h3>
+            <p>Get started by <a href="{% url 'book_create' %}">adding your first book</a>.</p>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div><!-- /.lib-table-card -->
+
+</div><!-- /.lib-dashboard -->
+
+
+<!-- ═══════════════════ Members Modal ═══════════════════ -->
+<div class="mem-overlay" id="members-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" hidden>
+    <div class="mem-dialog">
+
+        <!-- Modal Header -->
+        <div class="mem-header">
+            <div class="mem-header-left">
+                <div>
+                    <h2 class="mem-title" id="modal-title">Registered Members</h2>
+                    <p class="mem-subtitle">{{ total_users }} student member{{ total_users|pluralize }} registered</p>
+                </div>
+            </div>
+            <button class="mem-close" id="close-members-modal" aria-label="Close members panel">✕</button>
+        </div>
+
+        <!-- Modal Search -->
+        <div class="mem-search-wrap">
+            <input type="text" id="member-search" class="mem-search-input"
+                placeholder="Filter by name, username, email or student ID…" autocomplete="off">
+        </div>
+
+        <!-- Members Table -->
+        <div class="mem-table-wrap">
+            {% if all_users %}
+            <table class="mem-table" id="members-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Name</th>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Student ID</th>
+                        <th>Department</th>
+                        <th>Joined</th>
+                    </tr>
+                </thead>
+                <tbody id="members-tbody">
+                    {% for member in all_users %}
+                    <tr class="mem-row"
+                        data-search="{{ member.get_full_name|lower }} {{ member.username|lower }} {{ member.email|lower }} {{ member.student_id|default:''|lower }} {{ member.department|default:''|lower }}">
+                        <td class="mem-num">{{ forloop.counter }}</td>
+                        <td class="mem-name">
+                            {{ member.get_full_name|default:member.username }}
+                        </td>
+                        <td class="mem-username">{{ member.username }}</td>
+                        <td class="mem-email">{{ member.email }}</td>
+                        <td>
+                            <span class="role-badge {{ member.role }}">{{ member.get_role_display }}</span>
+                        </td>
+                        <td class="mem-sid">{{ member.student_id|default:"—" }}</td>
+                        <td class="mem-dept">{{ member.get_department_display|default:"—" }}</td>
+                        <td class="mem-joined">{{ member.date_joined|date:"M d, Y" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <p class="mem-no-results" id="mem-no-results" hidden>No members match your search.</p>
+            {% else %}
+            <div class="mem-empty">
+                <p>No users have registered yet.</p>
+            </div>
+            {% endif %}
+        </div><!-- /.mem-table-wrap -->
+
+    </div><!-- /.mem-dialog -->
+</div><!-- /.mem-overlay -->
+
+
+<!-- ──────────────────── Page-scoped CSS ──────────────────── -->
+<style>
+    /* ---- Layout ---- */
+    .lib-dashboard {
+        width: 100%;
+        max-width: 1200px;
+        align-self: flex-start;
+        display: flex;
+        flex-direction: column;
+        gap: 1.75rem;
+    }
+
+    /* ---- Header ---- */
+    .lib-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 1.25rem;
+    }
+
+    .lib-title {
+        font-size: 2rem;
+        font-family: 'Outfit', sans-serif;
+        font-weight: 700;
+        margin-bottom: 0.2rem;
+    }
+
+    .lib-subtitle {
+        color: var(--text-muted);
+        font-size: 0.92rem;
+    }
+
+    /* ---- Stat Cards ---- */
+    .lib-stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 1.25rem;
+    }
+
+    .lib-stat-card {
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 1.5rem 1.75rem;
+        box-shadow: var(--shadow);
+        transition: var(--transition);
+        border-left: 4px solid transparent;
+    }
+
+    .lib-stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    }
+
+    .stat-users {
+        border-left-color: #6366f1;
+    }
+
+    .stat-available {
+        border-left-color: #10b981;
+    }
+
+    .stat-borrowed {
+        border-left-color: #f59e0b;
+    }
+
+    .stat-icon {
+        font-size: 2.4rem;
+        line-height: 1;
+        flex-shrink: 0;
+    }
+
+    .stat-value {
+        font-size: 2.25rem;
+        font-weight: 800;
+        font-family: 'Outfit', sans-serif;
+        line-height: 1;
+        color: var(--primary-color);
+        margin-bottom: 0.25rem;
+    }
+
+    .stat-label {
+        font-size: 0.82rem;
+        color: var(--text-muted);
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    /* ---- Action Bar ---- */
+    .lib-action-bar {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .lib-search-form {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex: 1;
+        min-width: 260px;
+    }
+
+    .search-input-wrap {
+        position: relative;
+        flex: 1;
+    }
+
+    .search-icon {
+        position: absolute;
+        left: 0.8rem;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 0.9rem;
+        pointer-events: none;
+    }
+
+    .lib-search-input {
+        width: 100%;
+        padding: 0.65rem 2.5rem 0.65rem 2.25rem;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius);
+        font-family: inherit;
+        font-size: 0.9rem;
+        background: var(--card-bg);
+        color: var(--text-main);
+        transition: var(--transition);
+    }
+
+    .lib-search-input:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.07);
+    }
+
+    .search-clear {
+        position: absolute;
+        right: 0.75rem;
+        top: 50%;
+        transform: translateY(-50%);
+        text-decoration: none;
+        color: var(--text-muted);
+        font-size: 0.85rem;
+        transition: var(--transition);
+    }
+
+    .search-clear:hover {
+        color: var(--error-text);
+    }
+
+    .btn-search {
+        padding: 0.65rem 1.25rem;
+        background: var(--primary-color);
+        color: #fff;
+        border: none;
+        border-radius: var(--radius);
+        font-family: inherit;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: var(--transition);
+        white-space: nowrap;
+    }
+
+    .btn-search:hover {
+        background: var(--primary-hover);
+    }
+
+    .btn-add-book {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.65rem 1.4rem;
+        background: #10b981;
+        color: #fff;
+        text-decoration: none;
+        border-radius: var(--radius);
+        font-family: inherit;
+        font-size: 0.9rem;
+        font-weight: 600;
+        transition: var(--transition);
+        white-space: nowrap;
+    }
+
+    .btn-add-book:hover {
+        background: #059669;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+
+    .search-feedback {
+        font-size: 0.87rem;
+        color: var(--text-muted);
+        margin-top: -0.75rem;
+    }
+
+    /* ---- Table Card ---- */
+    .lib-table-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+    }
+
+    .lib-table-wrap {
+        overflow-x: auto;
+    }
+
+    .lib-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+    }
+
+    .lib-table thead tr {
+        background: var(--primary-color);
+        color: #fff;
+    }
+
+    .lib-table th {
+        padding: 0.85rem 1rem;
+        text-align: left;
+        font-size: 0.78rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        white-space: nowrap;
+    }
+
+    .lib-table tbody tr {
+        border-bottom: 1px solid var(--border-color);
+        transition: background var(--transition);
+    }
+
+    .lib-table tbody tr:last-child {
+        border-bottom: none;
+    }
+
+    .lib-table tbody tr:hover {
+        background: #f8fafc;
+    }
+
+    .lib-table td {
+        padding: 0.9rem 1rem;
+        vertical-align: middle;
+    }
+
+    .book-id {
+        font-weight: 700;
+        color: var(--text-muted);
+        width: 2.5rem;
+    }
+
+    .title-text {
+        display: block;
+        font-weight: 600;
+        color: var(--primary-color);
+    }
+
+    .publisher-text {
+        display: block;
+        font-size: 0.77rem;
+        color: var(--text-muted);
+        margin-top: 0.1rem;
+    }
+
+    .isbn-text {
+        font-family: monospace;
+        font-size: 0.83rem;
+        color: var(--text-muted);
+    }
+
+    .price-text {
+        font-weight: 600;
+        color: #059669;
+    }
+
+    .category-chip {
+        display: inline-block;
+        padding: 0.2rem 0.65rem;
+        background: var(--info-bg);
+        color: var(--info-text);
+        border-radius: 20px;
+        font-size: 0.78rem;
+        font-weight: 500;
+    }
+
+    /* Copies Column */
+    .copies-wrap {
+        display: flex;
+        align-items: baseline;
+        gap: 0.15rem;
+        margin-bottom: 0.2rem;
+    }
+
+    .copies-available {
+        font-weight: 700;
+        font-size: 1rem;
+        color: var(--primary-color);
+    }
+
+    .copies-sep,
+    .copies-total {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+    }
+
+    .badge-available,
+    .badge-partial,
+    .badge-unavailable {
+        display: inline-block;
+        padding: 0.1rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .badge-available {
+        background: #d1fae5;
+        color: #065f46;
+    }
+
+    .badge-partial {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .badge-unavailable {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    /* Action Buttons */
+    .actions-col {
+        width: 140px;
+    }
+
+    .action-btns {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .btn-action {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.35rem 0.75rem;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-decoration: none;
+        transition: var(--transition);
+        white-space: nowrap;
+    }
+
+    .btn-edit {
+        background: var(--info-bg);
+        color: var(--info-text);
+        border: 1px solid rgba(14, 165, 233, 0.2);
+    }
+
+    .btn-edit:hover {
+        background: #bae6fd;
+        color: #0369a1;
+    }
+
+    .btn-delete {
+        background: var(--error-bg);
+        color: var(--error-text);
+        border: 1px solid rgba(239, 68, 68, 0.15);
+    }
+
+    .btn-delete:hover {
+        background: #fecaca;
+        color: #7f1d1d;
+    }
+
+    /* ---- Empty State ---- */
+    .lib-empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+    }
+
+    .empty-icon {
+        font-size: 3.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .lib-empty-state h3 {
+        font-size: 1.2rem;
+        margin-bottom: 0.5rem;
+        color: var(--primary-color);
+    }
+
+    .lib-empty-state p {
+        color: var(--text-muted);
+        font-size: 0.9rem;
+    }
+
+    .lib-empty-state a {
+        color: #10b981;
+        font-weight: 600;
+        text-decoration: none;
+    }
+
+    .lib-empty-state a:hover {
+        text-decoration: underline;
+    }
+
+    /* ---- Responsive ---- */
+    @media (max-width: 768px) {
+        .lib-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+
+        .lib-action-bar {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .lib-search-form {
+            flex-direction: column;
+        }
+
+        .btn-add-book {
+            justify-content: center;
+        }
+
+        .lib-stats-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .actions-col {
+            width: auto;
+        }
+
+        .action-btns {
+            flex-direction: column;
+        }
+    }
+
+    /* ---- Clickable stat card ---- */
+    .stat-clickable {
+        cursor: pointer;
+        text-align: left;
+        width: 100%;
+        font-family: inherit;
+        background: var(--card-bg);
+    }
+
+    .stat-hint {
+        font-size: 0.72rem;
+        color: #6366f1;
+        font-weight: 600;
+        margin-top: 0.35rem;
+        opacity: 0;
+        transform: translateY(4px);
+        transition: opacity 0.2s ease, transform 0.2s ease;
+        text-transform: none;
+        letter-spacing: 0;
+    }
+
+    .stat-clickable:hover .stat-hint,
+    .stat-clickable:focus .stat-hint {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .stat-clickable:focus {
+        outline: 2px solid #6366f1;
+        outline-offset: 2px;
+    }
+
+    /* ══════════ Members Modal ══════════ */
+
+    /* Overlay / backdrop */
+    .mem-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.55);
+        backdrop-filter: blur(3px);
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+        animation: fadeIn 0.18s ease;
+    }
+
+    .mem-overlay[hidden] {
+        display: none !important;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 1;
+        }
+    }
+
+    /* Dialog panel */
+    .mem-dialog {
+        background: var(--card-bg);
+        border-radius: 16px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+        width: 100%;
+        max-width: 960px;
+        max-height: 88vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        animation: slideUp 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(24px) scale(0.97);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+
+    /* Modal Header */
+    .mem-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.5rem 1.75rem;
+        background: linear-gradient(135deg, #0f172a 0%, #312e81 100%);
+        flex-shrink: 0;
+    }
+
+    .mem-header-left {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .mem-header-icon {
+        font-size: 2rem;
+    }
+
+    .mem-title {
+        font-size: 1.3rem;
+        font-family: 'Outfit', sans-serif;
+        font-weight: 700;
+        color: #fff;
+        margin-bottom: 0.1rem;
+    }
+
+    .mem-subtitle {
+        font-size: 0.8rem;
+        color: rgba(255, 255, 255, 0.6);
+    }
+
+    .mem-close {
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        color: #fff;
+        font-size: 1.1rem;
+        width: 2.2rem;
+        height: 2.2rem;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.15s ease;
+        flex-shrink: 0;
+    }
+
+    .mem-close:hover {
+        background: rgba(255, 255, 255, 0.25);
+    }
+
+    /* Modal Search */
+    .mem-search-wrap {
+        padding: 1rem 1.75rem;
+        border-bottom: 1px solid var(--border-color);
+        flex-shrink: 0;
+    }
+
+    .mem-search-input {
+        width: 100%;
+        padding: 0.65rem 1rem;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius);
+        font-family: inherit;
+        font-size: 0.9rem;
+        background: var(--bg-color);
+        color: var(--text-main);
+        transition: var(--transition);
+    }
+
+    .mem-search-input:focus {
+        outline: none;
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+    }
+
+    /* Table wrapper — scrollable */
+    .mem-table-wrap {
+        overflow-y: auto;
+        overflow-x: auto;
+        flex: 1;
+        padding: 0 0 0.5rem;
+    }
+
+    /* Members table */
+    .mem-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+    }
+
+    .mem-table thead tr {
+        position: sticky;
+        top: 0;
+        background: #f1f5f9;
+        z-index: 1;
+    }
+
+    .mem-table th {
+        padding: 0.75rem 1rem;
+        text-align: left;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--secondary-color);
+        white-space: nowrap;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .mem-table td {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid var(--border-color);
+        vertical-align: middle;
+    }
+
+    .mem-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    .mem-table tbody tr:hover {
+        background: #f8fafc;
+    }
+
+    .mem-num {
+        color: var(--text-muted);
+        font-weight: 600;
+        font-size: 0.8rem;
+        width: 2rem;
+    }
+
+    .mem-name {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        font-weight: 600;
+        color: var(--primary-color);
+        white-space: nowrap;
+    }
+
+    .mem-avatar {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2rem;
+        height: 2rem;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #6366f1, #818cf8);
+        color: #fff;
+        font-size: 0.8rem;
+        font-weight: 700;
+        flex-shrink: 0;
+    }
+
+    .mem-username {
+        color: var(--text-muted);
+        font-size: 0.82rem;
+    }
+
+    .mem-email {
+        color: var(--secondary-color);
+        font-size: 0.83rem;
+    }
+
+    .mem-sid {
+        font-family: monospace;
+        font-size: 0.83rem;
+        color: var(--text-muted);
+    }
+
+    .mem-dept {
+        font-size: 0.83rem;
+        color: var(--text-muted);
+    }
+
+    .mem-joined {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        white-space: nowrap;
+    }
+
+    .mem-no-results {
+        text-align: center;
+        padding: 2rem;
+        color: var(--text-muted);
+        font-size: 0.9rem;
+    }
+
+    .mem-empty {
+        text-align: center;
+        padding: 3rem 2rem;
+        color: var(--text-muted);
+    }
+
+    /* Highlighted search match */
+    mark.mem-highlight {
+        background: #fef08a;
+        color: inherit;
+        border-radius: 2px;
+        padding: 0 1px;
+    }
+
+    @media (max-width: 640px) {
+        .mem-dialog {
+            max-height: 95vh;
+            border-radius: 12px;
+        }
+
+        .mem-header {
+            padding: 1rem 1.25rem;
+        }
+
+        .mem-search-wrap {
+            padding: 0.75rem 1rem;
+        }
+    }
+</style>
+
+<!-- ──────────────────── Members Modal JS ──────────────────── -->
+<script>
+    (function () {
+        'use strict';
+
+        const overlay = document.getElementById('members-modal');
+        const openBtn = document.getElementById('open-members-modal');
+        const closeBtn = document.getElementById('close-members-modal');
+        const searchIn = document.getElementById('member-search');
+        const tbody = document.getElementById('members-tbody');
+        const noRes = document.getElementById('mem-no-results');
+
+        /* ── Open ── */
+        function openModal() {
+            overlay.hidden = false;
+            document.body.style.overflow = 'hidden';
+            searchIn.value = '';
+            filterRows('');
+            setTimeout(() => searchIn.focus(), 50);
+        }
+
+        /* ── Close ── */
+        function closeModal() {
+            overlay.hidden = true;
+            document.body.style.overflow = '';
+            openBtn.focus();
+        }
+
+        openBtn && openBtn.addEventListener('click', openModal);
+        closeBtn && closeBtn.addEventListener('click', closeModal);
+
+        /* Backdrop click */
+        overlay && overlay.addEventListener('click', function (e) {
+            if (e.target === overlay) closeModal();
+        });
+
+        /* Escape key */
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && !overlay.hidden) closeModal();
+        });
+
+        /* ── Live filter ── */
+        function filterRows(query) {
+            if (!tbody) return;
+            const q = query.trim().toLowerCase();
+            let visible = 0;
+            const rows = tbody.querySelectorAll('.mem-row');
+
+            rows.forEach(function (row) {
+                const haystack = (row.dataset.search || '');
+                const match = !q || haystack.includes(q);
+                row.hidden = !match;
+                if (match) visible++;
+            });
+
+            if (noRes) noRes.hidden = (visible > 0 || !q);
+        }
+
+        searchIn && searchIn.addEventListener('input', function () {
+            filterRows(this.value);
+        });
+    })();
+</script>
 {% endblock %}
