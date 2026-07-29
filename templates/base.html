@@ -35,6 +35,7 @@
 
                 {% if user.role == 'student' %}
                 <a href="{% url 'student_dashboard' %}" class="nav-item">Dashboard</a>
+                <a href="{% url 'book_list_user' %}" class="nav-item">Browse Catalog</a>
                 {% elif user.role == 'librarian' %}
                 <a href="{% url 'librarian_dashboard' %}" class="nav-item">Dashboard</a>
                 {% elif user.role == 'admin' %}

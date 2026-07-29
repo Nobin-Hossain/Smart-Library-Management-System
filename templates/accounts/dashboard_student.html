@@ -7,7 +7,8 @@
     <div class="dashboard-header">
         <div>
             <h1>Student Dashboard</h1>
-            <p class="dashboard-subtitle">Welcome back, <strong>{{ user.first_name|default:user.username }}</strong>!</p>
+            <p class="dashboard-subtitle">Welcome back, <strong>{{ user.first_name|default:user.username }}</strong>!
+            </p>
         </div>
         <div>
             <span class="role-badge student">Student Account</span>
@@ -15,7 +16,8 @@
     </div>
 
     <!-- Student details bar -->
-    <div style="background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 1rem; margin-bottom: 1.5rem; display: flex; gap: 2rem; font-size: 0.9rem;">
+    <div
+        style="background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 1rem; margin-bottom: 1.5rem; display: flex; gap: 2rem; font-size: 0.9rem;">
         <div><strong>Student ID:</strong> {{ user.student_id|default:"N/A" }}</div>
         <div><strong>Department:</strong> {{ user.department|default:"N/A" }}</div>
         <div><strong>Email:</strong> {{ user.email }}</div>
@@ -25,21 +27,21 @@
         <!-- Widget: Borrowed Books -->
         <div class="dashboard-card">
             <h3>Books Borrowed</h3>
-            <div class="stat-number">3</div>
+            <div class="stat-number">0</div>
             <p class="activity-meta">Current books checked out</p>
         </div>
 
         <!-- Widget: Overdue Alerts -->
         <div class="dashboard-card">
             <h3>Active Fines</h3>
-            <div class="stat-number">$0.00</div>
+            <div class="stat-number">0.00</div>
             <p class="activity-meta">No outstanding library fines</p>
         </div>
 
         <!-- Widget: Reservations -->
         <div class="dashboard-card">
             <h3>Reservations</h3>
-            <div class="stat-number">1</div>
+            <div class="stat-number">0</div>
             <p class="activity-meta">Books reserved for pickup</p>
         </div>
     </div>
@@ -51,15 +53,18 @@
             <ul class="activity-list">
                 <li class="activity-item">
                     <div><strong>Introduction to Algorithms (4th Edition)</strong></div>
-                    <div class="activity-meta">Borrowed on: 2026-07-10 | Due: 2026-07-24 (Status: <span style="color: var(--success-text); font-weight: 600;">Active</span>)</div>
+                    <div class="activity-meta">Borrowed on: 2026-07-10 | Due: 2026-07-24 (Status: <span
+                            style="color: var(--success-text); font-weight: 600;">Active</span>)</div>
                 </li>
                 <li class="activity-item">
                     <div><strong>Clean Code: A Handbook of Agile Software Craftsmanship</strong></div>
-                    <div class="activity-meta">Borrowed on: 2026-07-02 | Due: 2026-07-16 (Status: <span style="color: var(--accent-color); font-weight: 600;">Due Today</span>)</div>
+                    <div class="activity-meta">Borrowed on: 2026-07-02 | Due: 2026-07-16 (Status: <span
+                            style="color: var(--accent-color); font-weight: 600;">Due Today</span>)</div>
                 </li>
                 <li class="activity-item">
                     <div><strong>Design Patterns: Elements of Reusable Object-Oriented Software</strong></div>
-                    <div class="activity-meta">Borrowed on: 2026-06-15 | Returned on: 2026-06-29 (Status: Returned)</div>
+                    <div class="activity-meta">Borrowed on: 2026-06-15 | Returned on: 2026-06-29 (Status: Returned)
+                    </div>
                 </li>
             </ul>
         </div>
@@ -68,8 +73,10 @@
         <div class="dashboard-card">
             <h3>Library Information</h3>
             <div style="font-size: 0.9rem; color: var(--secondary-color);">
-                <p style="margin-bottom: 0.75rem;"><strong>Summer Term Hours:</strong><br>Mon - Fri: 8:00 AM - 10:00 PM<br>Sat - Sun: 10:00 AM - 6:00 PM</p>
-                <p><strong>Notice:</strong> The main reading room on the 3rd floor will be closed for maintenance this Sunday, July 19.</p>
+                <p style="margin-bottom: 0.75rem;"><strong>Summer Term Hours:</strong><br>Mon - Fri: 8:00 AM - 10:00
+                    PM<br>Sat - Sun: 10:00 AM - 6:00 PM</p>
+                <p><strong>Notice:</strong> The main reading room on the 3rd floor will be closed for maintenance this
+                    Sunday, July 19.</p>
             </div>
         </div>
     </div>

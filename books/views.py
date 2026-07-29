@@ -129,3 +129,46 @@ def book_delete(request, pk):
         return redirect('librarian_dashboard')
 
     return render(request, 'books/book_confirm_delete.html', {'book': book})
+
+
+# ---------------------------------------------------------------------------
+# Student Book Catalog
+# ---------------------------------------------------------------------------
+
+from django.core.paginator import Paginator
+from django.http import HttpResponseForbidden
+
+@login_required
+def book_list_user(request):
+    """
+    View for students to view the full list of books entered by librarians.
+    Access Control: Only users with role='student' can access this view.
+    Librarians and Admins receive a 403 Forbidden response.
+    """
+    # CRITICAL access check: ensure only students can access this view
+    if getattr(request.user, 'role', None) != 'student':
+        return HttpResponseForbidden("Access denied. This view is reserved for students.")
+
+    query = request.GET.get('q', '').strip()
+    books = Book.objects.all().order_by('book_id')
+
+    # Search filter using Q objects (case-insensitive partial match on title, author, category)
+    if query:
+        books = books.filter(
+            Q(title__icontains=query) |
+            Q(author__icontains=query) |
+            Q(category__icontains=query)
+        )
+
+    # Paginate list: 10 books per page
+    paginator = Paginator(books, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        'page_obj': page_obj,
+        'books': page_obj.object_list,
+        'query': query,
+    }
+    return render(request, 'books/book_list_user.html', context)
+
