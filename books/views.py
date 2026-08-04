@@ -3,9 +3,13 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Sum, Q
 from django.contrib.auth import get_user_model
+from django.core.paginator import Paginator
+from django.http import HttpResponseForbidden
+from django.db import transaction as db_transaction
+import datetime
 
 from accounts.decorators import role_required
-from .models import Book
+from .models import Book, BorrowRequest, IssueTransaction, Notification
 from .forms import BookForm
 
 User = get_user_model()
@@ -135,9 +139,6 @@ def book_delete(request, pk):
 # Student Book Catalog
 # ---------------------------------------------------------------------------
 
-from django.core.paginator import Paginator
-from django.http import HttpResponseForbidden
-
 @login_required
 def book_list_user(request):
     """
@@ -172,3 +173,238 @@ def book_list_user(request):
     }
     return render(request, 'books/book_list_user.html', context)
 
+
+# ---------------------------------------------------------------------------
+# Borrow Request Workflow
+# ---------------------------------------------------------------------------
+
+@login_required
+def create_borrow_request(request, book_id):
+    """
+    Allows a student to submit a borrow request for a specific book.
+    POST only. Security and business-rule checks are applied before creating
+    the request.
+    """
+    # CRITICAL: Only students may submit borrow requests
+    if request.user.role != 'student':
+        messages.error(request, "Only students can request to borrow books.")
+        return redirect('book_list_user')
+
+    if request.method != 'POST':
+        return redirect('book_list_user')
+
+    book = get_object_or_404(Book, pk=book_id)
+
+    # Business rule: a student can hold AT MOST ONE active book at a time.
+    # Check (a): does the student already have an issued (unreturned) book?
+    already_issued = IssueTransaction.objects.filter(
+        user=request.user,
+        status=IssueTransaction.STATUS_ISSUED,
+    ).exists()
+
+    if already_issued:
+        messages.error(
+            request,
+            "You already have a book issued. Please return it before requesting another."
+        )
+        return redirect('book_list_user')
+
+    # Check (b): does the student already have a pending borrow request?
+    already_pending = BorrowRequest.objects.filter(
+        user=request.user,
+        status=BorrowRequest.STATUS_PENDING,
+    ).exists()
+
+    if already_pending:
+        messages.error(
+            request,
+            "You already have a pending borrow request. Please wait for it to be reviewed."
+        )
+        return redirect('book_list_user')
+
+    # All checks passed — create the borrow request
+    BorrowRequest.objects.create(
+        user=request.user,
+        book=book,
+        status=BorrowRequest.STATUS_PENDING,
+    )
+
+    # Notify ALL admins so they are aware of the new request
+    admin_users = User.objects.filter(role='admin')
+    admin_notifications = [
+        Notification(
+            user=admin,
+            message=f"{request.user.username} requested to borrow '{book.title}'.",
+        )
+        for admin in admin_users
+    ]
+    Notification.objects.bulk_create(admin_notifications)
+
+    messages.success(
+        request,
+        f'Your borrow request for "{book.title}" has been submitted. '
+        'Please wait for admin approval.'
+    )
+    return redirect('book_list_user')
+
+
+@login_required
+@role_required('admin')
+def admin_request_list(request):
+    """
+    Admin view listing all PENDING borrow requests.
+    Admins can approve or reject each request from this page.
+    """
+    # Fetch all pending requests with related user and book data in one query
+    pending_requests = BorrowRequest.objects.filter(
+        status=BorrowRequest.STATUS_PENDING
+    ).select_related('user', 'book').order_by('request_date')
+
+    return render(request, 'books/admin_request_list.html', {
+        'pending_requests': pending_requests,
+    })
+
+
+@login_required
+@role_required('admin')
+def approve_borrow_request(request, request_id):
+    """
+    Admin approves a pending borrow request.
+    POST only. Creates an IssueTransaction (which decrements available_copies
+    via the model's overridden save()), marks the BorrowRequest as APPROVED,
+    and fans out notifications to the student and every librarian.
+
+    The BorrowRequest status update and IssueTransaction creation are wrapped
+    in db_transaction.atomic() so it is all-or-nothing — no partial state
+    can be written to the database if an error occurs mid-way.
+    """
+    if request.method != 'POST':
+        return redirect('admin_request_list')
+
+    borrow_request = get_object_or_404(BorrowRequest, pk=request_id)
+    book = borrow_request.book
+
+    # Safety check: ensure at least one copy is physically available
+    if book.available_copies <= 0:
+        messages.error(
+            request,
+            f'Cannot approve: "{book.title}" has no available copies right now.'
+        )
+        return redirect('admin_request_list')
+
+    # Wrap the state change + transaction creation in a DB atomic block
+    with db_transaction.atomic():
+        # Mark the borrow request as approved
+        borrow_request.status = BorrowRequest.STATUS_APPROVED
+        borrow_request.save(update_fields=['status'])
+
+        # Calculate due date: issue_date (today) + 7 days
+        today = datetime.date.today()
+        due_date = today + datetime.timedelta(days=7)
+
+        # Create the issue transaction — save() auto-decrements available_copies
+        issue = IssueTransaction.objects.create(
+            book=book,
+            user=borrow_request.user,
+            admin=request.user,
+            due_date=due_date,
+        )
+
+    student = borrow_request.user
+
+    # Notify the student that their request was approved
+    Notification.objects.create(
+        user=student,
+        message=(
+            f"Your request for '{book.title}' has been approved. "
+            f"Return by {issue.due_date.strftime('%b %d, %Y')}."
+        ),
+    )
+
+    # Fan-out notification to ALL librarians so they know to physically hand
+    # over the book to the student (librarians don't approve but need to
+    # be informed to coordinate physical book handover).
+    librarian_users = User.objects.filter(role='librarian')
+    librarian_notifications = [
+        Notification(
+            user=librarian,
+            message=(
+                f"{student.username}'s request for '{book.title}' was approved by admin. "
+                f"Due date: {issue.due_date.strftime('%b %d, %Y')}."
+            ),
+        )
+        for librarian in librarian_users
+    ]
+    Notification.objects.bulk_create(librarian_notifications)
+
+    messages.success(
+        request,
+        f'Request approved. "{book.title}" has been issued to {student.username}.'
+    )
+    return redirect('admin_request_list')
+
+
+@login_required
+@role_required('admin')
+def reject_borrow_request(request, request_id):
+    """
+    Admin rejects a pending borrow request.
+    POST only. No IssueTransaction is created and available_copies is unchanged.
+    Notifications are sent to the student and all librarians to keep them
+    informed of the admin's decision.
+    """
+    if request.method != 'POST':
+        return redirect('admin_request_list')
+
+    borrow_request = get_object_or_404(BorrowRequest, pk=request_id)
+    book = borrow_request.book
+    student = borrow_request.user
+
+    # Mark the request as rejected
+    borrow_request.status = BorrowRequest.STATUS_REJECTED
+    borrow_request.save(update_fields=['status'])
+
+    # Notify the student of the rejection
+    Notification.objects.create(
+        user=student,
+        message=f"Your request for '{book.title}' has been rejected.",
+    )
+
+    # Fan-out notification to ALL librarians to keep them informed of the decision
+    librarian_users = User.objects.filter(role='librarian')
+    librarian_notifications = [
+        Notification(
+            user=librarian,
+            message=(
+                f"{student.username}'s request for '{book.title}' was rejected by admin."
+            ),
+        )
+        for librarian in librarian_users
+    ]
+    Notification.objects.bulk_create(librarian_notifications)
+
+    messages.info(
+        request,
+        f'Request for "{book.title}" by {student.username} has been rejected.'
+    )
+    return redirect('admin_request_list')
+
+
+@login_required
+def user_notifications(request):
+    """
+    Displays all notifications for the currently logged-in user (student,
+    librarian, or admin), ordered most-recent-first.
+    Marks all unread notifications as read when the page is viewed.
+    """
+    # Fetch only this user's notifications, freshest first
+    notifications = Notification.objects.filter(
+        user=request.user
+    ).order_by('-created_at')
+
+    # Mark all currently-unread ones as read now that the user has seen them
+    notifications.filter(is_read=False).update(is_read=True)
+
+    return render(request, 'books/notifications.html', {
+        'notifications': notifications,
+    })

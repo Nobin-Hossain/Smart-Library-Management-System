@@ -1,0 +1,189 @@
+{% extends 'base.html' %}
+
+{% block title %}Notifications — Smart University Library{% endblock %}
+
+{% block content %}
+<div class="notif-container">
+
+    <!-- Header -->
+    <div class="notif-header">
+        <div>
+            <h1 class="notif-title">Notifications</h1>
+            <p class="notif-subtitle">Your recent library activity updates</p>
+        </div>
+        <span class="role-badge {{ user.role }}">{{ user.get_role_display }}</span>
+    </div>
+
+    <!-- Notifications List Card -->
+    <div class="notif-card">
+        {% if notifications %}
+
+        <ul class="notif-list">
+            {% for notif in notifications %}
+            <li class="notif-item {% if not notif.is_read %}notif-unread{% endif %}">
+                <div class="notif-dot {% if not notif.is_read %}dot-unread{% endif %}"></div>
+                <div class="notif-body">
+                    <p class="notif-message">{{ notif.message }}</p>
+                    <span class="notif-time">{{ notif.created_at|date:"M d, Y" }} at {{ notif.created_at|time:"g:i A" }}</span>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+
+        <div class="notif-footer">
+            <span class="notif-count">{{ notifications|length }} notification{{ notifications|length|pluralize }}</span>
+        </div>
+
+        {% else %}
+        <!-- Empty state -->
+        <div class="notif-empty">
+            <div class="notif-empty-icon">🔔</div>
+            <h3>All caught up!</h3>
+            <p>You have no notifications at the moment.</p>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+<style>
+    .notif-container {
+        width: 100%;
+        max-width: 800px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .notif-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 1rem;
+    }
+
+    .notif-title {
+        font-size: 1.85rem;
+        font-family: 'Outfit', sans-serif;
+        font-weight: 700;
+        margin-bottom: 0.2rem;
+    }
+
+    .notif-subtitle {
+        color: var(--text-muted);
+        font-size: 0.92rem;
+    }
+
+    .notif-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+    }
+
+    .notif-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+    }
+
+    .notif-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 1rem;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid var(--border-color);
+        transition: var(--transition);
+    }
+
+    .notif-item:last-child {
+        border-bottom: none;
+    }
+
+    .notif-item:hover {
+        background-color: #f8fafc;
+    }
+
+    /* Unread notification highlighted row */
+    .notif-unread {
+        background-color: #f0f7ff;
+    }
+
+    .notif-unread:hover {
+        background-color: #e8f2ff;
+    }
+
+    /* Status dot */
+    .notif-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background-color: #cbd5e1;
+        flex-shrink: 0;
+        margin-top: 0.35rem;
+    }
+
+    .dot-unread {
+        background-color: var(--primary-color);
+    }
+
+    .notif-body {
+        flex: 1;
+    }
+
+    .notif-message {
+        font-size: 0.93rem;
+        color: var(--primary-color);
+        margin: 0 0 0.3rem 0;
+        line-height: 1.5;
+    }
+
+    /* Unread messages are bold for extra visual emphasis */
+    .notif-unread .notif-message {
+        font-weight: 600;
+    }
+
+    .notif-time {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+    }
+
+    /* Footer */
+    .notif-footer {
+        padding: 0.85rem 1.25rem;
+        background: #f8fafc;
+        border-top: 1px solid var(--border-color);
+    }
+
+    .notif-count {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        font-weight: 500;
+    }
+
+    /* Empty state */
+    .notif-empty {
+        padding: 4rem 1.5rem;
+        text-align: center;
+        color: var(--text-muted);
+    }
+
+    .notif-empty-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+
+    .notif-empty h3 {
+        font-size: 1.25rem;
+        margin-bottom: 0.5rem;
+        color: var(--primary-color);
+    }
+
+    .notif-empty p {
+        font-size: 0.92rem;
+    }
+</style>
+{% endblock %}

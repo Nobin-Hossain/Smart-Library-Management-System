@@ -48,6 +48,7 @@
                         <th>Publisher</th>
                         <th>Price</th>
                         <th>Availability</th>
+                        <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -69,6 +70,16 @@
                             <span class="badge-available">{{ book.available_copies }} Available</span>
                             {% else %}
                             <span class="badge-unavailable">Out of Stock</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if book.available_copies > 0 %}
+                            <form method="POST" action="{% url 'create_borrow_request' book.book_id %}" style="margin:0;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn-borrow">Borrow Book</button>
+                            </form>
+                            {% else %}
+                            <span class="label-not-available">Not Available</span>
                             {% endif %}
                         </td>
                     </tr>
@@ -293,6 +304,36 @@
         padding: 0.3rem 0.7rem;
         background-color: var(--success-bg);
         color: var(--success-text);
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    /* ---- Borrow Action Column ---- */
+    .btn-borrow {
+        display: inline-block;
+        padding: 0.3rem 0.85rem;
+        background-color: var(--success-bg);
+        color: var(--success-text);
+        border: 1.5px solid var(--success-text);
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: var(--transition);
+        white-space: nowrap;
+    }
+
+    .btn-borrow:hover {
+        background-color: var(--success-text);
+        color: #ffffff;
+    }
+
+    .label-not-available {
+        display: inline-block;
+        padding: 0.3rem 0.7rem;
+        background-color: #f1f5f9;
+        color: #94a3b8;
         border-radius: 20px;
         font-size: 0.8rem;
         font-weight: 600;
