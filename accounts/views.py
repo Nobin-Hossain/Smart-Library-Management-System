@@ -4,6 +4,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from .forms import UserRegistrationForm, UserLoginForm
 from .decorators import role_required
+from django.utils import timezone
+from books.models import IssueTransaction
 
 User = get_user_model()
 
@@ -114,9 +116,42 @@ def logout_view(request):
 @role_required('student')
 def student_dashboard(request):
     """
-    Student dashboard view showing relevant student widgets.
+    Student dashboard view displaying real borrowing statistics and recent activity.
     """
-    return render(request, 'accounts/dashboard_student.html')
+    today = timezone.now().date()
+
+    # Calculate count of active (ISSUED) transactions for the student (0 or 1)
+    books_borrowed_count = IssueTransaction.objects.filter(
+        user=request.user,
+        status=IssueTransaction.STATUS_ISSUED
+    ).count()
+
+    # Fetch student's last 5 transactions, ordered by issue_date descending
+    recent_activity = IssueTransaction.objects.filter(
+        user=request.user
+    ).order_by('-issue_date')[:5]
+
+    # Compute display_status on Python objects for template rendering:
+    # Checked strictly in this order:
+    # a) If returned, status is 'Returned'
+    # b) Elif due date is today, status is 'Due Today'
+    # c) Elif due date is past, status is 'Overdue'
+    # d) Otherwise, status is 'Active'
+    for transaction in recent_activity:
+        if transaction.status == IssueTransaction.STATUS_RETURNED:
+            transaction.display_status = 'Returned'
+        elif transaction.due_date == today:
+            transaction.display_status = 'Due Today'
+        elif transaction.due_date < today:
+            transaction.display_status = 'Overdue'
+        else:
+            transaction.display_status = 'Active'
+
+    context = {
+        'books_borrowed_count': books_borrowed_count,
+        'recent_activity': recent_activity,
+    }
+    return render(request, 'accounts/dashboard_student.html', context)
 
 
 @login_required

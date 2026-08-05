@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+
+{% block title %}My Borrowed Books — Smart University Library{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="dashboard-header">
+        <div>
+            <h1>My Borrowed Books</h1>
+            <p class="dashboard-subtitle">Manage your currently borrowed library books</p>
+        </div>
+        <div>
+            <span class="role-badge student">Student Access</span>
+        </div>
+    </div>
+
+    {% if active_issue %}
+    <div class="card shadow-sm border rounded-3 mb-4">
+        <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+            <h3 class="h5 mb-0 text-primary fw-semibold">Active Book Loan</h3>
+            <span class="badge bg-success text-white px-3 py-2 fs-6">Currently Borrowed</span>
+        </div>
+        <div class="card-body p-4">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h4 class="fw-bold mb-2 text-dark">{{ active_issue.book.title }}</h4>
+                    <p class="text-secondary mb-3">
+                        <strong>Author:</strong> {{ active_issue.book.author }} &nbsp;|&nbsp;
+                        <strong>Category:</strong> {{ active_issue.book.category }} &nbsp;|&nbsp;
+                        <strong>ISBN:</strong> {{ active_issue.book.isbn }}
+                    </p>
+                    <div class="d-flex flex-wrap gap-4 text-muted small">
+                        <div>
+                            <strong>Issue Date:</strong> {{ active_issue.issue_date|date:"N j, Y" }}
+                        </div>
+                        <div>
+                            <strong>Due Date:</strong> {{ active_issue.due_date|date:"N j, Y" }}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                    <a href="{% url 'return_book' active_issue.transaction_id %}" class="btn btn-warning px-4 py-2 fw-semibold text-dark">
+                        Return Book
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="card shadow-sm border text-center p-5 rounded-3">
+        <div class="card-body py-4">
+            <div class="mb-3 text-muted" style="font-size: 3rem;">📚</div>
+            <h3 class="h5 fw-bold text-secondary mb-2">No Active Books</h3>
+            <p class="text-muted mb-4">You have no books currently borrowed.</p>
+            <a href="{% url 'book_list_user' %}" class="btn btn-primary px-4 py-2">
+                Browse Book Catalog
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

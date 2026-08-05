@@ -24,4 +24,9 @@ urlpatterns = [
 
     # Notifications (works for student, librarian, and admin)
     path('notifications/', views.user_notifications, name='user_notifications'),
+
+    # Student Book Return Flow
+    path('my-books/', views.my_borrowed_books, name='my_borrowed_books'),
+    path('my-books/<int:transaction_id>/return/', views.return_book, name='return_book'),
 ]
+

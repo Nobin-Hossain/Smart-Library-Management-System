@@ -27,7 +27,7 @@
         <!-- Widget: Borrowed Books -->
         <div class="dashboard-card">
             <h3>Books Borrowed</h3>
-            <div class="stat-number">0</div>
+            <div class="stat-number">{{ books_borrowed_count }}</div>
             <p class="activity-meta">Current books checked out</p>
         </div>
 
@@ -50,23 +50,36 @@
         <!-- Card: Recent Loans -->
         <div class="dashboard-card" style="grid-column: span 2;">
             <h3>Your Recent Borrowing Activity</h3>
+            {% if recent_activity %}
             <ul class="activity-list">
+                {% for transaction in recent_activity %}
                 <li class="activity-item">
-                    <div><strong>Introduction to Algorithms (4th Edition)</strong></div>
-                    <div class="activity-meta">Borrowed on: 2026-07-10 | Due: 2026-07-24 (Status: <span
-                            style="color: var(--success-text); font-weight: 600;">Active</span>)</div>
-                </li>
-                <li class="activity-item">
-                    <div><strong>Clean Code: A Handbook of Agile Software Craftsmanship</strong></div>
-                    <div class="activity-meta">Borrowed on: 2026-07-02 | Due: 2026-07-16 (Status: <span
-                            style="color: var(--accent-color); font-weight: 600;">Due Today</span>)</div>
-                </li>
-                <li class="activity-item">
-                    <div><strong>Design Patterns: Elements of Reusable Object-Oriented Software</strong></div>
-                    <div class="activity-meta">Borrowed on: 2026-06-15 | Returned on: 2026-06-29 (Status: Returned)
+                    <div><strong>{{ transaction.book.title }}</strong></div>
+                    <div class="activity-meta">
+                        Borrowed on: {{ transaction.issue_date }} | 
+                        {% if transaction.status == 'RETURNED' %}
+                            Returned on: {{ transaction.return_date }}
+                        {% else %}
+                            Due: {{ transaction.due_date }}
+                        {% endif %}
+                        (Status: 
+                        {% if transaction.display_status == 'Overdue' %}
+                            <span class="text-danger fw-bold">Overdue</span>
+                        {% elif transaction.display_status == 'Due Today' %}
+                            <span class="text-warning fw-bold">Due Today</span>
+                        {% elif transaction.display_status == 'Active' %}
+                            <span class="text-success fw-bold">Active</span>
+                        {% else %}
+                            <span class="text-muted fw-bold">Returned</span>
+                        {% endif %}
+                        )
                     </div>
                 </li>
+                {% endfor %}
             </ul>
+            {% else %}
+            <p class="text-muted" style="margin-top: 0.5rem; font-size: 0.9rem;">No borrowing activity recorded yet.</p>
+            {% endif %}
         </div>
 
         <!-- Card: Library Notices -->

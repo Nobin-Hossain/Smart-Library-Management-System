@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+
+{% block title %}Confirm Return — Smart University Library{% endblock %}
+
+{% block content %}
+<div class="dashboard-container" style="max-width: 600px; margin: 0 auto;">
+    <div class="card shadow-sm border rounded-3">
+        <div class="card-header bg-white py-3 border-bottom">
+            <h3 class="h5 mb-0 fw-bold text-dark">Confirm Book Return</h3>
+        </div>
+        <div class="card-body p-4">
+            <div class="alert alert-warning border-0 mb-4" role="alert">
+                <p class="mb-0 fw-medium">Are you sure you want to return this book?</p>
+            </div>
+
+            <div class="mb-4 p-3 bg-light rounded border">
+                <h4 class="h5 fw-bold mb-2 text-dark">{{ transaction.book.title }}</h4>
+                <p class="text-secondary mb-2"><strong>Author:</strong> {{ transaction.book.author }}</p>
+                <p class="text-muted small mb-0"><strong>Due Date:</strong> {{ transaction.due_date|date:"N j, Y" }}</p>
+            </div>
+
+            <form method="POST" action="{% url 'return_book' transaction.transaction_id %}" class="d-flex gap-2">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger px-4 py-2 fw-semibold">
+                    Confirm Return
+                </button>
+                <a href="{% url 'my_borrowed_books' %}" class="btn btn-outline-secondary px-4 py-2">
+                    Cancel
+                </a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

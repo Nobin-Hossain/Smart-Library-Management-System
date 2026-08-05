@@ -408,3 +408,54 @@ def user_notifications(request):
     return render(request, 'books/notifications.html', {
         'notifications': notifications,
     })
+
+
+# ---------------------------------------------------------------------------
+# Student Book Return Flow
+# ---------------------------------------------------------------------------
+
+@login_required
+def my_borrowed_books(request):
+    """
+    Displays the logged-in student's currently active (ISSUED) book transaction, if any.
+    Finds the active transaction using .first() since a student can hold at most one.
+    """
+    active_issue = IssueTransaction.objects.filter(
+        user=request.user,
+        status=IssueTransaction.STATUS_ISSUED
+    ).first()
+
+    return render(request, 'books/my_borrowed_books.html', {
+        'active_issue': active_issue,
+    })
+
+
+@login_required
+def return_book(request, transaction_id):
+    """
+    Handles book return for a student.
+    Uses get_object_or_404 filtering by BOTH transaction_id AND user=request.user
+    so a student cannot return someone else's book by guessing an ID.
+    - If status is already RETURNED, shows an error message and redirects to my_borrowed_books.
+    - GET: renders a confirmation page showing book details.
+    - POST: calls transaction.mark_as_returned(), shows a success message, and redirects.
+    """
+    transaction = get_object_or_404(
+        IssueTransaction,
+        pk=transaction_id,
+        user=request.user
+    )
+
+    if transaction.status == IssueTransaction.STATUS_RETURNED:
+        messages.error(request, f'"{transaction.book.title}" has already been returned.')
+        return redirect('my_borrowed_books')
+
+    if request.method == 'POST':
+        transaction.mark_as_returned()
+        messages.success(request, f"'{transaction.book.title}' returned successfully.")
+        return redirect('my_borrowed_books')
+
+    return render(request, 'books/return_confirm.html', {
+        'transaction': transaction,
+    })
+
