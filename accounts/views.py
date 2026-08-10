@@ -5,7 +5,7 @@ from django.contrib import messages
 from .forms import UserRegistrationForm, UserLoginForm
 from .decorators import role_required
 from django.utils import timezone
-from books.models import IssueTransaction
+from books.models import IssueTransaction, ReturnRequest
 
 User = get_user_model()
 
@@ -131,15 +131,25 @@ def student_dashboard(request):
         user=request.user
     ).order_by('-issue_date')[:5]
 
+    # Fetch pending return request transaction IDs in one query to avoid N+1 queries
+    pending_return_txn_ids = set(
+        ReturnRequest.objects.filter(
+            transaction__in=recent_activity, status=ReturnRequest.STATUS_PENDING
+        ).values_list('transaction_id', flat=True)
+    )
+
     # Compute display_status on Python objects for template rendering:
     # Checked strictly in this order:
-    # a) If returned, status is 'Returned'
-    # b) Elif due date is today, status is 'Due Today'
-    # c) Elif due date is past, status is 'Overdue'
-    # d) Otherwise, status is 'Active'
+    # a) if transaction.status == IssueTransaction.STATUS_RETURNED -> 'Returned'
+    # b) elif transaction.transaction_id in pending_return_txn_ids -> 'Return Requested' [NEW]
+    # c) elif transaction.due_date == today -> 'Due Today'
+    # d) elif transaction.due_date < today -> 'Overdue'
+    # e) else -> 'Active'
     for transaction in recent_activity:
         if transaction.status == IssueTransaction.STATUS_RETURNED:
             transaction.display_status = 'Returned'
+        elif transaction.transaction_id in pending_return_txn_ids:
+            transaction.display_status = 'Return Requested'
         elif transaction.due_date == today:
             transaction.display_status = 'Due Today'
         elif transaction.due_date < today:

@@ -148,6 +148,40 @@ class IssueTransaction(models.Model):
         return f"Transaction #{self.transaction_id} — {self.user.username} / {self.book.title}"
 
 
+class ReturnRequest(models.Model):
+    """
+    Represents a student's request to return a currently borrowed book.
+    Admins review PENDING return requests and approve them, which triggers mark_as_returned().
+    """
+    STATUS_PENDING = 'PENDING'
+    STATUS_APPROVED = 'APPROVED'
+
+    STATUS_CHOICES = [
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_APPROVED, 'Approved'),
+    ]
+
+    transaction = models.ForeignKey(
+        IssueTransaction,
+        on_delete=models.CASCADE,
+        related_name='return_requests',
+    )
+    request_date = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING,
+    )
+
+    class Meta:
+        ordering = ['-request_date']
+        verbose_name = 'Return Request'
+        verbose_name_plural = 'Return Requests'
+
+    def __str__(self):
+        return f"Return Request for Transaction #{self.transaction.transaction_id} — {self.transaction.user.username} / {self.transaction.book.title} [{self.status}]"
+
+
 class Notification(models.Model):
     """
     In-app notification for a specific user.

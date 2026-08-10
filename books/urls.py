@@ -25,8 +25,12 @@ urlpatterns = [
     # Notifications (works for student, librarian, and admin)
     path('notifications/', views.user_notifications, name='user_notifications'),
 
+    # Return Request Workflow
+    path('return-requests/', views.admin_return_request_list, name='admin_return_request_list'),
+    path('return-requests/<int:request_id>/approve/', views.approve_return_request, name='approve_return_request'),
+
     # Student Book Return Flow
     path('my-books/', views.my_borrowed_books, name='my_borrowed_books'),
-    path('my-books/<int:transaction_id>/return/', views.return_book, name='return_book'),
+    path('my-books/<int:transaction_id>/return/', views.request_return, name='request_return'),
 ]
 

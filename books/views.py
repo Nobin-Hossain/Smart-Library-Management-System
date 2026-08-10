@@ -9,7 +9,7 @@ from django.db import transaction as db_transaction
 import datetime
 
 from accounts.decorators import role_required
-from .models import Book, BorrowRequest, IssueTransaction, Notification
+from .models import Book, BorrowRequest, IssueTransaction, Notification, ReturnRequest
 from .forms import BookForm
 
 User = get_user_model()
@@ -414,32 +414,46 @@ def user_notifications(request):
 # Student Book Return Flow
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Student Book Return Flow & Admin Return Request Management
+# ---------------------------------------------------------------------------
+
 @login_required
 def my_borrowed_books(request):
     """
     Displays the logged-in student's currently active (ISSUED) book transaction, if any.
     Finds the active transaction using .first() since a student can hold at most one.
+    Also checks if a pending return request already exists for the active transaction.
     """
     active_issue = IssueTransaction.objects.filter(
         user=request.user,
         status=IssueTransaction.STATUS_ISSUED
     ).first()
 
+    # Check if the student has already submitted a pending return request for this issue
+    has_pending_return = ReturnRequest.objects.filter(
+        transaction=active_issue,
+        status=ReturnRequest.STATUS_PENDING
+    ).exists() if active_issue else False
+
     return render(request, 'books/my_borrowed_books.html', {
         'active_issue': active_issue,
+        'has_pending_return': has_pending_return,
     })
 
 
 @login_required
-def return_book(request, transaction_id):
+def request_return(request, transaction_id):
     """
-    Handles book return for a student.
-    Uses get_object_or_404 filtering by BOTH transaction_id AND user=request.user
-    so a student cannot return someone else's book by guessing an ID.
-    - If status is already RETURNED, shows an error message and redirects to my_borrowed_books.
-    - GET: renders a confirmation page showing book details.
-    - POST: calls transaction.mark_as_returned(), shows a success message, and redirects.
+    Allows a student to submit a return request for an active book loan.
+    POST only. Replaces direct single-step return with a request-based flow.
+    - Filters by transaction_id and user=request.user so students cannot request returns for others.
+    - Prevents submission if the book is already returned or if a pending return request exists.
+    - Fans out notifications to all Admins (to action the request) and Librarians (for awareness).
     """
+    if request.method != 'POST':
+        return redirect('my_borrowed_books')
+
     transaction = get_object_or_404(
         IssueTransaction,
         pk=transaction_id,
@@ -450,12 +464,108 @@ def return_book(request, transaction_id):
         messages.error(request, f'"{transaction.book.title}" has already been returned.')
         return redirect('my_borrowed_books')
 
-    if request.method == 'POST':
-        transaction.mark_as_returned()
-        messages.success(request, f"'{transaction.book.title}' returned successfully.")
+    # Prevent duplicate pending return requests
+    if ReturnRequest.objects.filter(transaction=transaction, status=ReturnRequest.STATUS_PENDING).exists():
+        messages.error(request, "You already have a pending return request for this book.")
         return redirect('my_borrowed_books')
 
-    return render(request, 'books/return_confirm.html', {
-        'transaction': transaction,
+    # Create the return request
+    ReturnRequest.objects.create(
+        transaction=transaction,
+        status=ReturnRequest.STATUS_PENDING
+    )
+
+    # Notify all admins so they can review and approve the return
+    admin_users = User.objects.filter(role='admin')
+    admin_notifications = [
+        Notification(
+            user=admin,
+            message=f"{request.user.username} wants to return '{transaction.book.title}'.",
+        )
+        for admin in admin_users
+    ]
+    Notification.objects.bulk_create(admin_notifications)
+
+    # Fan-out notification to ALL librarians so they are informed of the return request
+    librarian_users = User.objects.filter(role='librarian')
+    librarian_notifications = [
+        Notification(
+            user=librarian,
+            message=f"{request.user.username} has requested to return '{transaction.book.title}'.",
+        )
+        for librarian in librarian_users
+    ]
+    Notification.objects.bulk_create(librarian_notifications)
+
+    messages.success(
+        request,
+        f'Your return request for "{transaction.book.title}" has been submitted. '
+        'Please wait for admin approval.'
+    )
+    return redirect('my_borrowed_books')
+
+
+@login_required
+@role_required('admin')
+def admin_return_request_list(request):
+    """
+    Admin view listing all PENDING return requests.
+    Admins review student return requests and approve them to complete the book return process.
+    """
+    pending_returns = ReturnRequest.objects.filter(
+        status=ReturnRequest.STATUS_PENDING
+    ).select_related('transaction__user', 'transaction__book').order_by('request_date')
+
+    return render(request, 'books/admin_return_request_list.html', {
+        'pending_returns': pending_returns,
     })
+
+
+@login_required
+@role_required('admin')
+def approve_return_request(request, request_id):
+    """
+    Admin approves a pending return request.
+    POST only.
+    - Inside db_transaction.atomic(): marks transaction as RETURNED (which increments available_copies
+      and sets return_date) and updates return_request.status to APPROVED.
+    - Sends notifications to the student and fans out notifications to all librarians.
+    """
+    if request.method != 'POST':
+        return redirect('admin_return_request_list')
+
+    return_request = get_object_or_404(ReturnRequest, pk=request_id)
+    transaction = return_request.transaction
+    book = transaction.book
+    student = transaction.user
+
+    # Execute transaction mark_as_returned and request approval atomically
+    with db_transaction.atomic():
+        transaction.mark_as_returned()
+        return_request.status = ReturnRequest.STATUS_APPROVED
+        return_request.save(update_fields=['status'])
+
+    # Notify student that their return has been confirmed
+    Notification.objects.create(
+        user=student,
+        message=f"Your return for '{book.title}' has been confirmed.",
+    )
+
+    # Fan-out notification to ALL librarians so they know the book return is confirmed
+    librarian_users = User.objects.filter(role='librarian')
+    librarian_notifications = [
+        Notification(
+            user=librarian,
+            message=f"{student.username}'s return of '{book.title}' has been confirmed by admin.",
+        )
+        for librarian in librarian_users
+    ]
+    Notification.objects.bulk_create(librarian_notifications)
+
+    messages.success(
+        request,
+        f'Return request for "{book.title}" by {student.username} approved successfully.'
+    )
+    return redirect('admin_return_request_list')
+
 
