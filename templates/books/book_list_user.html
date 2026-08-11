@@ -18,7 +18,8 @@
     <div class="stu-action-bar">
         <form method="GET" action="{% url 'book_list_user' %}" class="stu-search-form">
             <div class="stu-search-input-wrap">
-                <input type="text" name="q" value="{{ query }}" class="stu-search-input" placeholder="Search by title, author, or category…">
+                <input type="text" name="q" value="{{ query }}" class="stu-search-input"
+                    placeholder="Search by title, author, or category…">
                 {% if query %}
                 <a href="{% url 'book_list_user' %}" class="stu-search-clear" title="Clear search">✕</a>
                 {% endif %}
@@ -46,7 +47,6 @@
                         <th>Author</th>
                         <th>Category</th>
                         <th>Publisher</th>
-                        <th>Price</th>
                         <th>Availability</th>
                         <th>Action</th>
                     </tr>
@@ -64,7 +64,6 @@
                             <span class="category-chip">{{ book.category }}</span>
                         </td>
                         <td class="stu-publisher">{{ book.publisher }}</td>
-                        <td class="price-text">৳{{ book.price }}</td>
                         <td>
                             {% if book.available_copies > 0 %}
                             <span class="badge-available">{{ book.available_copies }} Available</span>
@@ -74,7 +73,8 @@
                         </td>
                         <td>
                             {% if book.available_copies > 0 %}
-                            <form method="POST" action="{% url 'create_borrow_request' book.book_id %}" style="margin:0;">
+                            <form method="POST" action="{% url 'create_borrow_request' book.book_id %}"
+                                style="margin:0;">
                                 {% csrf_token %}
                                 <button type="submit" class="btn-borrow">Borrow Book</button>
                             </form>
@@ -114,7 +114,8 @@
         <!-- Friendly Empty State -->
         <div class="stu-empty-state">
             <h3>No books found</h3>
-            <p>We couldn't find any books matching your search criteria. <a href="{% url 'book_list_user' %}">Clear search filter</a></p>
+            <p>We couldn't find any books matching your search criteria. <a href="{% url 'book_list_user' %}">Clear
+                    search filter</a></p>
         </div>
         {% endif %}
     </div>

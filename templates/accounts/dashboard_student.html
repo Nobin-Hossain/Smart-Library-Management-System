@@ -69,6 +69,8 @@
                             <span class="text-warning fw-bold">Due Today</span>
                         {% elif transaction.display_status == 'Active' %}
                             <span class="text-success fw-bold">Active</span>
+                        {% elif transaction.display_status == 'Return Requested' %}
+                            <span class="text-info fw-bold">Return Requested</span>
                         {% else %}
                             <span class="text-muted fw-bold">Returned</span>
                         {% endif %}

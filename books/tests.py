@@ -231,8 +231,22 @@ class BookReturnFlowTests(TestCase):
 
         today = timezone.now().date()
 
+        # Use a separate book with ample copies so available_copies never
+        # goes negative regardless of how many transactions this test creates.
+        # (self.book only has 3 copies, 1 already consumed by setUp's self.issue_tx)
+        dashboard_book = Book.objects.create(
+            title='The Pragmatic Programmer',
+            author='Andrew Hunt',
+            isbn='9780135957059',
+            category='Software',
+            publisher='Addison-Wesley',
+            price=50.00,
+            total_copies=10,
+            available_copies=10,
+        )
+
         tx_returned = IssueTransaction.objects.create(
-            book=self.book,
+            book=dashboard_book,
             user=self.student2,
             admin=self.admin,
             due_date=today - datetime.timedelta(days=10)
@@ -240,7 +254,7 @@ class BookReturnFlowTests(TestCase):
         tx_returned.mark_as_returned()
 
         tx_return_requested = IssueTransaction.objects.create(
-            book=self.book,
+            book=dashboard_book,
             user=self.student2,
             admin=self.admin,
             due_date=today + datetime.timedelta(days=5)
@@ -248,14 +262,14 @@ class BookReturnFlowTests(TestCase):
         ReturnRequest.objects.create(transaction=tx_return_requested, status=ReturnRequest.STATUS_PENDING)
 
         tx_overdue = IssueTransaction.objects.create(
-            book=self.book,
+            book=dashboard_book,
             user=self.student2,
             admin=self.admin,
             due_date=today - datetime.timedelta(days=2)
         )
 
         tx_due_today = IssueTransaction.objects.create(
-            book=self.book,
+            book=dashboard_book,
             user=self.student2,
             admin=self.admin,
             due_date=today
@@ -272,6 +286,7 @@ class BookReturnFlowTests(TestCase):
         self.assertEqual(status_map[tx_return_requested.transaction_id], 'Return Requested')
         self.assertEqual(status_map[tx_overdue.transaction_id], 'Overdue')
         self.assertEqual(status_map[tx_due_today.transaction_id], 'Due Today')
+
 
 
 

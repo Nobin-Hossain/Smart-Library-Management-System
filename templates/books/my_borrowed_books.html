@@ -40,11 +40,13 @@
                 </div>
                 <div class="col-md-4 text-md-end mt-3 mt-md-0">
                     {% if has_pending_return %}
-                    <span class="badge bg-warning text-dark px-3 py-2 fs-6 fw-normal">
+                    <span class="badge bg-warning text-dark px-3 py-2 fs-6 fw-normal text-wrap"
+                        style="max-width: 100%; white-space: normal;">
                         Return Requested — waiting for admin approval.
                     </span>
                     {% else %}
-                    <form method="POST" action="{% url 'request_return' active_issue.transaction_id %}" style="display:inline;">
+                    <form method="POST" action="{% url 'request_return' active_issue.transaction_id %}"
+                        style="display:inline;">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-warning px-4 py-2 fw-semibold text-dark">
                             Return Book
@@ -60,7 +62,8 @@
         <div class="card-body py-4">
             <h3 class="h5 fw-bold text-secondary mb-2">No Active Books</h3>
             <p class="text-muted mb-4">You have no books currently borrowed.</p>
-            <a href="{% url 'book_list_user' %}" class="btn btn-primary px-4 py-2">
+            <a href="{% url 'book_list_user' %}" class="btn btn-primary"
+                style="width: 220px; padding: 8px 16px; font-size: 1.4 rem;">
                 Browse Book Catalog
             </a>
         </div>
