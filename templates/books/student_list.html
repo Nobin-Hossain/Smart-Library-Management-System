@@ -1,0 +1,269 @@
+{% extends 'base.html' %}
+
+{% block title %}Borrower History — Smart University Library{% endblock %}
+
+{% block content %}
+<div class="req-container">
+
+    <!-- Header -->
+    <div class="req-header">
+        <div>
+            <h1 class="req-title">Borrower History</h1>
+            <p class="req-subtitle">View and monitor student reliability ratings and borrowing activities</p>
+        </div>
+        <span class="role-badge admin">Admin Only</span>
+    </div>
+
+    <!-- Student List Table -->
+    <div class="req-table-card">
+        {% if students %}
+        <div class="req-table-wrap">
+            <table class="req-table">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Student ID</th>
+                        <th>Department</th>
+                        <th>Reliability Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for student in students %}
+                    <tr class="req-row">
+                        <!-- Username / Name stack -->
+                        <td>
+                            <div class="cell-stack">
+                                <span class="student-name" style="font-weight:600;">
+                                    {{ student.get_full_name|default:student.username }}
+                                </span>
+                                <span class="cell-muted">@{{ student.username }}</span>
+                            </div>
+                        </td>
+                        <!-- Student ID -->
+                        <td>
+                            {% if student.student_id %}
+                            <span>{{ student.student_id }}</span>
+                            {% else %}
+                            <span class="cell-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <!-- Department -->
+                        <td>
+                            {% if student.department %}
+                            <span class="category-chip">{{ student.department }}</span>
+                            {% else %}
+                            <span class="cell-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <!-- Status Badge -->
+                        <td>
+                            {% if student.student_status == 'New' %}
+                            <span class="badge bg-secondary">New</span>
+                            {% elif student.student_status == 'Reliable' %}
+                            <span class="badge bg-success">Reliable</span>
+                            {% elif student.student_status == 'Caution' %}
+                            <span class="badge bg-warning text-dark">Caution</span>
+                            {% elif student.student_status == 'Risky' %}
+                            <span class="badge bg-danger">Risky</span>
+                            {% endif %}
+                        </td>
+                        <!-- View History link -->
+                        <td>
+                            <a href="{% url 'student_borrow_history' student.pk %}" class="btn-approve" style="text-decoration: none; display: inline-block; padding: 0.35rem 0.75rem; font-size: 0.85rem;">
+                                View History
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="req-footer">
+            <span class="req-count">
+                Total Students: {{ students|length }}
+            </span>
+        </div>
+        {% else %}
+        <div class="req-empty">
+            <div class="req-empty-icon">👥</div>
+            <h3>No Students Found</h3>
+            <p>There are no registered student accounts in the system.</p>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+<style>
+    .req-container {
+        width: 100%;
+        max-width: 1200px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .req-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 1rem;
+    }
+
+    .req-title {
+        font-size: 1.85rem;
+        font-family: 'Outfit', sans-serif;
+        font-weight: 700;
+        margin-bottom: 0.2rem;
+    }
+
+    .req-subtitle {
+        color: var(--text-muted);
+        font-size: 0.92rem;
+    }
+
+    /* ---- Table card ---- */
+    .req-table-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+    }
+
+    .req-table-wrap {
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    .req-table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+        font-size: 0.92rem;
+        table-layout: auto;
+    }
+
+    .req-table th {
+        background: #f8fafc;
+        color: var(--secondary-color);
+        font-weight: 600;
+        padding: 0.9rem 1.1rem;
+        border-bottom: 1px solid var(--border-color);
+        text-transform: uppercase;
+        font-size: 0.78rem;
+        letter-spacing: 0.5px;
+        white-space: nowrap;
+    }
+
+    .req-table td {
+        padding: 0.95rem 1.1rem;
+        border-bottom: 1px solid var(--border-color);
+        vertical-align: middle;
+    }
+
+    .req-row:last-child td {
+        border-bottom: none;
+    }
+
+    .req-row:hover {
+        background-color: #f8fafc;
+    }
+
+    .req-id {
+        color: var(--text-muted);
+        font-weight: 500;
+        white-space: nowrap;
+    }
+
+    .cell-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 0.18rem;
+    }
+
+    .cell-muted {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        line-height: 1.4;
+    }
+
+    .cell-italic {
+        font-style: italic;
+    }
+
+    .student-name {
+        font-weight: 600;
+        color: var(--primary-color);
+        line-height: 1.4;
+    }
+
+    .category-chip {
+        display: inline-block;
+        padding: 0.25rem 0.65rem;
+        background-color: #f1f5f9;
+        color: var(--secondary-color);
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        white-space: nowrap;
+    }
+
+    .btn-approve {
+        display: inline-block;
+        padding: 0.35rem 0.85rem;
+        background-color: var(--success-bg);
+        color: var(--success-text);
+        border: 1.5px solid var(--success-text);
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: var(--transition);
+        white-space: nowrap;
+        margin-right: 0.4rem;
+    }
+
+    .btn-approve:hover:not(:disabled) {
+        background-color: var(--success-text);
+        color: #ffffff;
+    }
+
+    .req-footer {
+        padding: 0.85rem 1.1rem;
+        background: #f8fafc;
+        border-top: 1px solid var(--border-color);
+    }
+
+    .req-count {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        font-weight: 500;
+    }
+
+    .req-empty {
+        padding: 4rem 1.5rem;
+        text-align: center;
+        color: var(--text-muted);
+    }
+
+    .req-empty-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+
+    .req-empty h3 {
+        font-size: 1.25rem;
+        margin-bottom: 0.5rem;
+        color: var(--primary-color);
+    }
+
+    .req-empty p {
+        font-size: 0.92rem;
+    }
+</style>
+{% endblock %}

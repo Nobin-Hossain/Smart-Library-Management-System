@@ -42,6 +42,15 @@
                             <div class="cell-stack">
                                 <span class="student-name">
                                     {{ req.user.get_full_name|default:req.user.username }}
+                                    {% if req.student_status == 'New' %}
+                                        <span class="badge bg-secondary ms-1">New</span>
+                                    {% elif req.student_status == 'Reliable' %}
+                                        <span class="badge bg-success ms-1">Reliable</span>
+                                    {% elif req.student_status == 'Caution' %}
+                                        <span class="badge bg-warning text-dark ms-1">Caution</span>
+                                    {% elif req.student_status == 'Risky' %}
+                                        <span class="badge bg-danger ms-1">Risky</span>
+                                    {% endif %}
                                 </span>
                                 <span class="cell-muted">@{{ req.user.username }}</span>
                                 {% if req.user.student_id %}

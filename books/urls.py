@@ -32,5 +32,9 @@ urlpatterns = [
     # Student Book Return Flow
     path('my-books/', views.my_borrowed_books, name='my_borrowed_books'),
     path('my-books/<int:transaction_id>/return/', views.request_return, name='request_return'),
+
+    # Admin Student History / Reliability
+    path('students/', views.student_list, name='student_list'),
+    path('students/<int:user_id>/history/', views.student_borrow_history, name='student_borrow_history'),
 ]
 

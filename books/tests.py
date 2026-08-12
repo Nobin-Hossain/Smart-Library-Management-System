@@ -288,5 +288,126 @@ class BookReturnFlowTests(TestCase):
         self.assertEqual(status_map[tx_due_today.transaction_id], 'Due Today')
 
 
+class StudentReliabilityAndHistoryTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.admin = User.objects.create_user(
+            username='admin1',
+            email='admin@example.com',
+            password='password123',
+            role='admin'
+        )
+        self.student = User.objects.create_user(
+            username='student1',
+            email='student1@example.com',
+            password='password123',
+            role='student'
+        )
+        self.book = Book.objects.create(
+            title='Clean Code',
+            author='Robert C. Martin',
+            isbn='9780132350884',
+            category='Software',
+            publisher='Prentice Hall',
+            price=45.00,
+            total_copies=5,
+            available_copies=5
+        )
+
+    def test_get_user_borrow_stats_new(self):
+        from books.views import get_user_borrow_stats
+        stats = get_user_borrow_stats(self.student)
+        self.assertEqual(stats['total_borrows'], 0)
+        self.assertEqual(stats['status'], 'New')
+
+    def test_get_user_borrow_stats_reliable(self):
+        from books.models import IssueTransaction
+        from django.utils import timezone
+        import datetime
+        from books.views import get_user_borrow_stats
+
+        today = timezone.now().date()
+        tx = IssueTransaction.objects.create(
+            book=self.book,
+            user=self.student,
+            admin=self.admin,
+            due_date=today + datetime.timedelta(days=7)
+        )
+        tx.mark_as_returned()
+
+        stats = get_user_borrow_stats(self.student)
+        self.assertEqual(stats['total_borrows'], 1)
+        self.assertEqual(stats['status'], 'Reliable')
+
+    def test_get_user_borrow_stats_caution_and_risky(self):
+        from books.models import IssueTransaction
+        from django.utils import timezone
+        import datetime
+        from books.views import get_user_borrow_stats
+
+        today = timezone.now().date()
+        # 1 overdue return
+        tx1 = IssueTransaction.objects.create(
+            book=self.book,
+            user=self.student,
+            admin=self.admin,
+            due_date=today - datetime.timedelta(days=2)
+        )
+        # Manually mark as returned overdue
+        tx1.status = IssueTransaction.STATUS_RETURNED
+        tx1.return_date = today
+        tx1.save()
+
+        stats = get_user_borrow_stats(self.student)
+        self.assertEqual(stats['status'], 'Caution')
+
+        # 2 more overdue returns (making total 3)
+        for i in range(2):
+            tx = IssueTransaction.objects.create(
+                book=self.book,
+                user=self.student,
+                admin=self.admin,
+                due_date=today - datetime.timedelta(days=2)
+            )
+            tx.status = IssueTransaction.STATUS_RETURNED
+            tx.return_date = today
+            tx.save()
+
+        stats = get_user_borrow_stats(self.student)
+        self.assertEqual(stats['status'], 'Risky')
+
+    def test_student_list_view(self):
+        self.client.login(username='admin1', password='password123')
+        url = reverse('student_list')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'books/student_list.html')
+        students = response.context['students']
+        self.assertTrue(any(s.username == self.student.username for s in students))
+
+    def test_student_borrow_history_view(self):
+        from books.models import IssueTransaction
+        from django.utils import timezone
+        import datetime
+        
+        today = timezone.now().date()
+        tx = IssueTransaction.objects.create(
+            book=self.book,
+            user=self.student,
+            admin=self.admin,
+            due_date=today + datetime.timedelta(days=7)
+        )
+        tx.mark_as_returned()
+
+        self.client.login(username='admin1', password='password123')
+        url = reverse('student_borrow_history', kwargs={'user_id': self.student.pk})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'books/student_borrow_history.html')
+        events = response.context['events']
+        self.assertEqual(len(events), 2)  # 1 borrow, 1 return
+
+
+
 
 

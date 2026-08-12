@@ -7,7 +7,9 @@
     <div class="dashboard-header">
         <div>
             <h1>Library Admin Console</h1>
-            <p class="dashboard-subtitle">Global System Settings & Management | Welcome, <strong>{{ user.username }}</strong>!</p>
+            <p class="dashboard-subtitle">Global System Settings & Management | Welcome,
+                <strong>{{user.username}}</strong>!
+            </p>
         </div>
         <div>
             <span class="role-badge admin">Administrator Account</span>
@@ -43,13 +45,16 @@
             <h3>System Status & Logs</h3>
             <ul class="activity-list">
                 <li class="activity-item">
-                    <div style="font-family: monospace; font-size: 0.85rem;">[2026-07-16 14:02:11] INFO: Applied 19 database migrations successfully.</div>
+                    <div style="font-family: monospace; font-size: 0.85rem;">[2026-07-16 14:02:11] INFO: Applied 19
+                        database migrations successfully.</div>
                 </li>
                 <li class="activity-item">
-                    <div style="font-family: monospace; font-size: 0.85rem;">[2026-07-16 11:22:50] WARNING: staticfiles cache cleared.</div>
+                    <div style="font-family: monospace; font-size: 0.85rem;">[2026-07-16 11:22:50] WARNING: staticfiles
+                        cache cleared.</div>
                 </li>
                 <li class="activity-item">
-                    <div style="font-family: monospace; font-size: 0.85rem;">[2026-07-16 09:00:03] SUCCESS: Custom User authentication models mapping loaded.</div>
+                    <div style="font-family: monospace; font-size: 0.85rem;">[2026-07-16 09:00:03] SUCCESS: Custom User
+                        authentication models mapping loaded.</div>
                 </li>
             </ul>
         </div>
@@ -59,8 +64,6 @@
             <h3>System Control Panel</h3>
             <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1rem;">
                 <a class="btn btn-primary" href="{% url 'admin:index' %}" target="_blank">Open Django Admin Panel</a>
-                <button class="btn btn-secondary" disabled>Backup Library DB</button>
-                <button class="btn btn-secondary" disabled>Configure API Keys</button>
             </div>
         </div>
     </div>

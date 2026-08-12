@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.db.models import Sum, Q
+from django.db.models import Sum, Q, F
 from django.contrib.auth import get_user_model
 from django.core.paginator import Paginator
 from django.http import HttpResponseForbidden
@@ -248,6 +248,29 @@ def create_borrow_request(request, book_id):
     return redirect('book_list_user')
 
 
+def get_user_borrow_stats(user):
+    """
+    Calculates borrow statistics for a given user.
+    Returns a dictionary containing the total borrow count and a reliability status string.
+    """
+    total_borrows = IssueTransaction.objects.filter(user=user).count()
+    if total_borrows == 0:
+        status = 'New'
+    else:
+        overdue_count = IssueTransaction.objects.filter(
+            user=user,
+            status=IssueTransaction.STATUS_RETURNED,
+            return_date__gt=F('due_date')
+        ).count()
+        if overdue_count == 0:
+            status = 'Reliable'
+        elif 1 <= overdue_count <= 2:
+            status = 'Caution'
+        else:
+            status = 'Risky'
+    return {'total_borrows': total_borrows, 'status': status}
+
+
 @login_required
 @role_required('admin')
 def admin_request_list(request):
@@ -259,6 +282,9 @@ def admin_request_list(request):
     pending_requests = BorrowRequest.objects.filter(
         status=BorrowRequest.STATUS_PENDING
     ).select_related('user', 'book').order_by('request_date')
+
+    for req in pending_requests:
+        req.student_status = get_user_borrow_stats(req.user)['status']
 
     return render(request, 'books/admin_request_list.html', {
         'pending_requests': pending_requests,
@@ -563,5 +589,56 @@ def approve_return_request(request, request_id):
         f'Return request for "{book.title}" by {student.username} approved successfully.'
     )
     return redirect('admin_return_request_list')
+
+
+@login_required
+@role_required('admin')
+def student_list(request):
+    """
+    Admin view listing all students with their reliability status.
+    """
+    students = User.objects.filter(role='student').order_by('username')
+    for student in students:
+        student.student_status = get_user_borrow_stats(student)['status']
+    
+    return render(request, 'books/student_list.html', {
+        'students': students,
+    })
+
+
+@login_required
+@role_required('admin')
+def student_borrow_history(request, user_id):
+    """
+    Admin view displaying borrowing history for a specific student.
+    """
+    student = get_object_or_404(User, pk=user_id, role='student')
+    transactions = IssueTransaction.objects.filter(user=student).select_related('book')
+    
+    events = []
+    for tx in transactions:
+        events.append({
+            'date': tx.issue_date,
+            'type': 'Borrowed',
+            'status': 'borrowed',
+            'book_title': tx.book.title,
+            'due_date': tx.due_date,
+        })
+        if tx.status == IssueTransaction.STATUS_RETURNED and tx.return_date:
+            is_overdue = tx.return_date > tx.due_date
+            events.append({
+                'date': tx.return_date,
+                'type': 'Returned',
+                'status': 'returned_overdue' if is_overdue else 'returned_on_time',
+                'book_title': tx.book.title,
+                'due_date': tx.due_date,
+            })
+            
+    events.sort(key=lambda x: x['date'])
+    
+    return render(request, 'books/student_borrow_history.html', {
+        'student': student,
+        'events': events,
+    })
 
 

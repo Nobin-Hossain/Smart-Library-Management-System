@@ -18,7 +18,7 @@
 
     <!-- Load custom static CSS -->
     {% load static %}
-    <link rel="stylesheet" href="{% static 'css/styles.css' %}?v=4">
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}?v=5">
 </head>
 
 <body>
@@ -48,6 +48,7 @@
                 <a href="{% url 'admin_dashboard' %}" class="nav-item">Dashboard</a>
                 <a href="{% url 'admin_request_list' %}" class="nav-item">Borrow Requests</a>
                 <a href="{% url 'admin_return_request_list' %}" class="nav-item">Return Requests</a>
+                <a href="{% url 'student_list' %}" class="nav-item">Borrower History</a>
                 <a href="{% url 'user_notifications' %}" class="nav-item">Notifications</a>
                 {% endif %}
 

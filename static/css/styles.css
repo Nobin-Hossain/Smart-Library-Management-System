@@ -499,3 +499,245 @@ h1, h2, h3, h4, h5, h6 {
         gap: 1rem;
     }
 }
+
+
+/* ---- Shared Request Table Styles ---- */
+.req-container {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.req-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 1rem;
+}
+
+.req-title {
+    font-size: 1.85rem;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 700;
+    margin-bottom: 0.2rem;
+}
+
+.req-subtitle {
+    color: var(--text-muted);
+    font-size: 0.92rem;
+}
+
+/* ---- Table card ---- */
+.req-table-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+.req-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.req-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 0.92rem;
+    table-layout: auto;
+}
+
+.req-table th {
+    background: #f8fafc;
+    color: var(--secondary-color);
+    font-weight: 600;
+    padding: 0.9rem 1.1rem;
+    border-bottom: 1px solid var(--border-color);
+    text-transform: uppercase;
+    font-size: 0.78rem;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+.req-table td {
+    padding: 0.95rem 1.1rem;
+    border-bottom: 1px solid var(--border-color);
+    vertical-align: middle;
+}
+
+.req-row:last-child td {
+    border-bottom: none;
+}
+
+.req-row:hover {
+    background-color: #f8fafc;
+}
+
+.req-id {
+    color: var(--text-muted);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.cell-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.18rem;
+}
+
+.cell-muted {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+.cell-italic {
+    font-style: italic;
+}
+
+.student-name {
+    font-weight: 600;
+    color: var(--primary-color);
+    line-height: 1.4;
+}
+
+.book-title {
+    font-weight: 600;
+    color: var(--primary-color);
+    line-height: 1.4;
+}
+
+.req-date {
+    font-size: 0.88rem;
+    color: var(--secondary-color);
+    white-space: nowrap;
+}
+
+.req-time {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.category-chip {
+    display: inline-block;
+    padding: 0.25rem 0.65rem;
+    background-color: #f1f5f9;
+    color: var(--secondary-color);
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.badge-available {
+    display: inline-block;
+    padding: 0.3rem 0.7rem;
+    background-color: var(--success-bg);
+    color: var(--success-text);
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.badge-unavailable {
+    display: inline-block;
+    padding: 0.3rem 0.7rem;
+    background-color: var(--error-bg);
+    color: var(--error-text);
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.req-actions {
+    white-space: nowrap;
+}
+
+.req-actions form {
+    display: inline;
+}
+
+.btn-approve {
+    display: inline-block;
+    padding: 0.35rem 0.85rem;
+    background-color: var(--success-bg);
+    color: var(--success-text);
+    border: 1.5px solid var(--success-text);
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    white-space: nowrap;
+    margin-right: 0.4rem;
+}
+
+.btn-approve:hover:not(:disabled) {
+    background-color: var(--success-text);
+    color: #ffffff;
+}
+
+.btn-approve:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.btn-reject {
+    display: inline-block;
+    padding: 0.35rem 0.85rem;
+    background-color: var(--error-bg);
+    color: var(--error-text);
+    border: 1.5px solid var(--error-text);
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    white-space: nowrap;
+}
+
+.btn-reject:hover {
+    background-color: var(--error-text);
+    color: #ffffff;
+}
+
+.req-footer {
+    padding: 0.85rem 1.1rem;
+    background: #f8fafc;
+    border-top: 1px solid var(--border-color);
+}
+
+.req-count {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.req-empty {
+    padding: 4rem 1.5rem;
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.req-empty-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.req-empty h3 {
+    font-size: 1.25rem;
+    margin-bottom: 0.5rem;
+    color: var(--primary-color);
+}
+
+.req-empty p {
+    font-size: 0.92rem;
+}
