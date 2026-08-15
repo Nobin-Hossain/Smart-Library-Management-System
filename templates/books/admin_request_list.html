@@ -43,13 +43,13 @@
                                 <span class="student-name">
                                     {{ req.user.get_full_name|default:req.user.username }}
                                     {% if req.student_status == 'New' %}
-                                        <span class="badge bg-secondary ms-1">New</span>
+                                    <span class="badge bg-secondary ms-1">New</span>
                                     {% elif req.student_status == 'Reliable' %}
-                                        <span class="badge bg-success ms-1">Reliable</span>
+                                    <span class="badge bg-success ms-1">Reliable</span>
                                     {% elif req.student_status == 'Caution' %}
-                                        <span class="badge bg-warning text-dark ms-1">Caution</span>
+                                    <span class="badge bg-warning text-dark ms-1">Caution</span>
                                     {% elif req.student_status == 'Risky' %}
-                                        <span class="badge bg-danger ms-1">Risky</span>
+                                    <span class="badge bg-danger ms-1">Risky</span>
                                     {% endif %}
                                 </span>
                                 <span class="cell-muted">@{{ req.user.username }}</span>
@@ -94,10 +94,36 @@
                             <span class="req-time">{{ req.request_date|time:"g:i A" }}</span>
                         </td>
 
-                        <!-- Approve / Reject — side by side, vertically centred by vertical-align:middle on td -->
                         <td class="req-actions">
                             {% if req.book.available_copies > 0 %}
-                            <form method="POST" action="{% url 'approve_borrow_request' req.pk %}" style="display:inline;">
+                            <form method="POST" action="{% url 'approve_borrow_request' req.pk %}"
+                                class="approve-form">
+                                {% csrf_token %}
+                                <input type="datetime-local" name="due_date" value="{{ default_due_date }}"
+                                    class="due-date-input">
+                                <button type="submit" class="btn-approve"
+                                    onclick="return confirm('Approve this request for {{ req.user.username }}?')">
+                                    ✓ Approve
+                                </button>
+                            </form>
+                            {% else %}
+                            <button class="btn-approve" disabled title="No copies available">✓ Approve</button>
+                            {% endif %}
+
+                            <form method="POST" action="{% url 'reject_borrow_request' req.pk %}"
+                                style="display:inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn-reject"
+                                    onclick="return confirm('Reject this request for {{ req.user.username }}?')">
+                                    ✕ Reject
+                                </button>
+                            </form>
+                        </td>
+                        <!-- Approve / Reject — side by side, vertically centred by vertical-align:middle on td -->
+                        <!-- <td class="req-actions">
+                            {% if req.book.available_copies > 0 %}
+                            <form method="POST" action="{% url 'approve_borrow_request' req.pk %}"
+                                style="display:inline;">
                                 {% csrf_token %}
                                 <button type="submit" class="btn-approve"
                                     onclick="return confirm('Approve this request for {{ req.user.username }}?')">
@@ -108,14 +134,15 @@
                             <button class="btn-approve" disabled title="No copies available">✓ Approve</button>
                             {% endif %}
 
-                            <form method="POST" action="{% url 'reject_borrow_request' req.pk %}" style="display:inline;">
+                            <form method="POST" action="{% url 'reject_borrow_request' req.pk %}"
+                                style="display:inline;">
                                 {% csrf_token %}
                                 <button type="submit" class="btn-reject"
                                     onclick="return confirm('Reject this request for {{ req.user.username }}?')">
                                     ✕ Reject
                                 </button>
                             </form>
-                        </td>
+                        </td> -->
 
                     </tr>
                     {% endfor %}
@@ -395,5 +422,22 @@
     .req-empty p {
         font-size: 0.92rem;
     }
+
+    .due-date-input {
+    padding: 0.25rem 0.4rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 0.75rem;
+    width: 160px;
+    margin-right: 0.3rem;
+}
+
+    .approve-form {
+        display: inline-flex;
+        flex-direction: column;
+        gap: 0.3rem;
+        vertical-align: middle;
+        margin-right: 0.4rem;
+}
 </style>
 {% endblock %}
