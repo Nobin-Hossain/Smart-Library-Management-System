@@ -209,3 +209,41 @@ class Notification(models.Model):
     def __str__(self):
         read_status = "read" if self.is_read else "unread"
         return f"Notification for {self.user.username} [{read_status}]: {self.message[:50]}"
+
+
+class Fine(models.Model):
+
+    STATUS_UNPAID = "UNPAID"
+    STATUS_PAID = "PAID"
+
+    STATUS_CHOICES = [
+        (STATUS_UNPAID, "Unpaid"),
+        (STATUS_PAID, "Paid"),
+    ]
+
+    transaction = models.ForeignKey(
+        IssueTransaction,
+        on_delete=models.CASCADE,
+        related_name="fines",
+    )
+
+    amount = models.DecimalField(max_digits=8, decimal_places=2)
+    reason = models.CharField(max_length=255)
+
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_UNPAID,
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Fine"
+        verbose_name_plural = "Fines"
+
+    def __str__(self):
+        return (
+            f"Fine ৳{self.amount} for {self.transaction.user.username} [{self.status}]"
+        )

@@ -2,10 +2,11 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout, get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.db.models import Sum
 from .forms import UserRegistrationForm, UserLoginForm
 from .decorators import role_required
 from django.utils import timezone
-from books.models import IssueTransaction, ReturnRequest
+from books.models import IssueTransaction, ReturnRequest, Fine
 
 User = get_user_model()
 
@@ -166,9 +167,15 @@ def student_dashboard(request):
         else:
             transaction.display_status = "Active"
 
+    unpaid_fines = Fine.objects.filter(
+        transaction__user=request.user, status=Fine.STATUS_UNPAID
+    )
+    total_fine_amount = unpaid_fines.aggregate(total=Sum("amount"))["total"] or 0
+
     context = {
         "books_borrowed_count": books_borrowed_count,
         "recent_activity": recent_activity,
+        "total_fine_amount": total_fine_amount,
     }
     return render(request, "accounts/dashboard_student.html", context)
 
@@ -179,7 +186,18 @@ def admin_dashboard(request):
     """
     System administrator dashboard view containing admin actions.
     """
-    return render(request, "accounts/dashboard_admin.html")
+    unpaid_fines = Fine.objects.filter(status=Fine.STATUS_UNPAID)
+    total_unpaid_amount = unpaid_fines.aggregate(total=Sum("amount"))["total"] or 0
+    unpaid_fines_count = unpaid_fines.count()
+
+    return render(
+        request,
+        "accounts/dashboard_admin.html",
+        {
+            "total_unpaid_amount": total_unpaid_amount,
+            "unpaid_fines_count": unpaid_fines_count,
+        },
+    )
 
 
 def forbidden_view(request):

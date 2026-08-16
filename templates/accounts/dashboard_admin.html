@@ -24,12 +24,14 @@
             <p class="activity-meta">Students, Librarians, and Admins</p>
         </div>
 
-        <!-- Widget: Database status -->
-        <div class="dashboard-card">
-            <h3>Database Status</h3>
-            <div class="stat-number" style="color: var(--success-text);">Healthy</div>
-            <p class="activity-meta">SQLite database connection stable</p>
-        </div>
+        <!-- Widget: Unpaid fines -->
+        <a href="{% url 'admin_fine_list' %}" style="text-decoration: none; color: inherit;">
+            <div class="dashboard-card">
+                <h3>Total Unpaid Fines</h3>
+                <div class="stat-number">৳{{ total_unpaid_amount }}</div>
+                <p class="activity-meta">{{ unpaid_fines_count }} unpaid fine{{ unpaid_fines_count|pluralize }}</p>
+            </div>
+        </a>
 
         <!-- Widget: Branches -->
         <div class="dashboard-card">

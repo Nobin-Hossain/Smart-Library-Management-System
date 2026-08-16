@@ -10,7 +10,14 @@ import datetime
 from django.utils import timezone
 
 from accounts.decorators import role_required
-from .models import Book, BorrowRequest, IssueTransaction, Notification, ReturnRequest
+from .models import (
+    Book,
+    BorrowRequest,
+    IssueTransaction,
+    Notification,
+    ReturnRequest,
+    Fine,
+)
 from .forms import BookForm
 
 User = get_user_model()
@@ -609,11 +616,21 @@ def approve_return_request(request, request_id):
     book = transaction.book
     student = transaction.user
 
+    FINE_PER_DAY = 25
+
     # Execute transaction mark_as_returned and request approval atomically
     with db_transaction.atomic():
         transaction.mark_as_returned()
         return_request.status = ReturnRequest.STATUS_APPROVED
         return_request.save(update_fields=["status"])
+
+        days_late = (transaction.return_date.date() - transaction.due_date.date()).days
+        if days_late > 0:
+            Fine.objects.create(
+                transaction=transaction,
+                amount=days_late * FINE_PER_DAY,
+                reason=f"{days_late} day(s) overdue",
+            )
 
     # Notify student that their return has been confirmed
     Notification.objects.create(
@@ -703,3 +720,46 @@ def student_borrow_history(request, user_id):
             "events": events,
         },
     )
+
+
+@login_required
+@role_required("admin")
+def admin_fine_list(request):
+    """
+    Admin view listing all library fines.
+    Admins can mark unpaid fines as paid from this page.
+    """
+    fines = (
+        Fine.objects.select_related("transaction__user", "transaction__book")
+        .all()
+        .order_by("-created_at")
+    )
+
+    return render(
+        request,
+        "books/admin_fine_list.html",
+        {
+            "fines": fines,
+        },
+    )
+
+
+@login_required
+@role_required("admin")
+def mark_fine_paid(request, fine_id):
+    """
+    Admin marks an unpaid fine as paid.
+    POST only. Updates fine status to PAID and redirects back to the fine list.
+    """
+    if request.method != "POST":
+        return redirect("admin_fine_list")
+
+    fine = get_object_or_404(Fine, pk=fine_id)
+    fine.status = Fine.STATUS_PAID
+    fine.save(update_fields=["status"])
+
+    messages.success(
+        request,
+        f"Fine of ৳{fine.amount} for {fine.transaction.user.username} marked as paid.",
+    )
+    return redirect("admin_fine_list")

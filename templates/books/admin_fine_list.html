@@ -1,0 +1,279 @@
+{% extends 'base.html' %}
+
+{% block title %}Fine Management — Smart University Library{% endblock %}
+
+{% block content %}
+<div class="req-container">
+
+    <!-- Header -->
+    <div class="req-header">
+        <div>
+            <h1 class="req-title">Fine Management</h1>
+            <p class="req-subtitle">Review library fines and mark payments received</p>
+        </div>
+        <span class="role-badge admin">Admin Only</span>
+    </div>
+
+    <!-- Fines Table -->
+    <div class="req-table-card">
+        {% if fines %}
+        <div class="req-table-wrap">
+            <table class="req-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Student</th>
+                        <th>Book</th>
+                        <th>Amount</th>
+                        <th>Reason</th>
+                        <th>Status</th>
+                        <th>Created On</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fine in fines %}
+                    <tr class="req-row">
+
+                        <td class="req-id">{{ forloop.counter }}</td>
+
+                        <td>
+                            <span class="student-name">{{ fine.transaction.user.username }}</span>
+                        </td>
+
+                        <td>
+                            <span class="book-title">{{ fine.transaction.book.title }}</span>
+                        </td>
+
+                        <td class="fine-amount">৳{{ fine.amount }}</td>
+
+                        <td>{{ fine.reason }}</td>
+
+                        <td>
+                            {% if fine.status == 'UNPAID' %}
+                            <span class="badge bg-danger">Unpaid</span>
+                            {% else %}
+                            <span class="badge bg-success">Paid</span>
+                            {% endif %}
+                        </td>
+
+                        <td class="req-date">
+                            {{ fine.created_at|date:"M d, Y" }}<br>
+                            <span class="req-time">{{ fine.created_at|time:"g:i A" }}</span>
+                        </td>
+
+                        <td class="req-actions">
+                            {% if fine.status == 'UNPAID' %}
+                            <form method="POST" action="{% url 'mark_fine_paid' fine.pk %}" style="display:inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn-approve"
+                                    onclick="return confirm('Mark fine of ৳{{ fine.amount }} for {{ fine.transaction.user.username }} as paid?')">
+                                    ✓ Mark Paid
+                                </button>
+                            </form>
+                            {% else %}
+                            <span class="cell-muted">—</span>
+                            {% endif %}
+                        </td>
+
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="req-footer">
+            <span class="req-count">
+                {{ fines|length }} fine record{{ fines|length|pluralize }}
+            </span>
+        </div>
+
+        {% else %}
+        <div class="req-empty">
+            <div class="req-empty-icon">💰</div>
+            <h3>No Fines Recorded</h3>
+            <p>No library fines have been issued yet.</p>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+<style>
+    .req-container {
+        width: 100%;
+        max-width: 1200px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .req-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 1rem;
+    }
+
+    .req-title {
+        font-size: 1.85rem;
+        font-family: 'Outfit', sans-serif;
+        font-weight: 700;
+        margin-bottom: 0.2rem;
+    }
+
+    .req-subtitle {
+        color: var(--text-muted);
+        font-size: 0.92rem;
+    }
+
+    .req-table-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+    }
+
+    .req-table-wrap {
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    .req-table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+        font-size: 0.92rem;
+        table-layout: auto;
+    }
+
+    .req-table th {
+        background: #f8fafc;
+        color: var(--secondary-color);
+        font-weight: 600;
+        padding: 0.9rem 1.1rem;
+        border-bottom: 1px solid var(--border-color);
+        text-transform: uppercase;
+        font-size: 0.78rem;
+        letter-spacing: 0.5px;
+        white-space: nowrap;
+    }
+
+    .req-table td {
+        padding: 0.95rem 1.1rem;
+        border-bottom: 1px solid var(--border-color);
+        vertical-align: middle;
+    }
+
+    .req-row:last-child td {
+        border-bottom: none;
+    }
+
+    .req-row:hover {
+        background-color: #f8fafc;
+    }
+
+    .req-id {
+        color: var(--text-muted);
+        font-weight: 500;
+        white-space: nowrap;
+    }
+
+    .cell-muted {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        line-height: 1.4;
+    }
+
+    .student-name {
+        font-weight: 600;
+        color: var(--primary-color);
+        line-height: 1.4;
+    }
+
+    .book-title {
+        font-weight: 600;
+        color: var(--primary-color);
+        line-height: 1.4;
+    }
+
+    .fine-amount {
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .req-date {
+        font-size: 0.88rem;
+        color: var(--secondary-color);
+        white-space: nowrap;
+    }
+
+    .req-time {
+        font-size: 0.78rem;
+        color: var(--text-muted);
+    }
+
+    .req-actions {
+        white-space: nowrap;
+    }
+
+    .req-actions form {
+        display: inline;
+    }
+
+    .btn-approve {
+        display: inline-block;
+        padding: 0.35rem 0.85rem;
+        background-color: var(--success-bg);
+        color: var(--success-text);
+        border: 1.5px solid var(--success-text);
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: var(--transition);
+        white-space: nowrap;
+    }
+
+    .btn-approve:hover {
+        background-color: var(--success-text);
+        color: #ffffff;
+    }
+
+    .req-footer {
+        padding: 0.85rem 1.1rem;
+        background: #f8fafc;
+        border-top: 1px solid var(--border-color);
+    }
+
+    .req-count {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        font-weight: 500;
+    }
+
+    .req-empty {
+        padding: 4rem 1.5rem;
+        text-align: center;
+        color: var(--text-muted);
+    }
+
+    .req-empty-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+
+    .req-empty h3 {
+        font-size: 1.25rem;
+        margin-bottom: 0.5rem;
+        color: var(--primary-color);
+    }
+
+    .req-empty p {
+        font-size: 0.92rem;
+    }
+</style>
+{% endblock %}

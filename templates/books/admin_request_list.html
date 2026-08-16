@@ -95,54 +95,39 @@
                         </td>
 
                         <td class="req-actions">
-                            {% if req.book.available_copies > 0 %}
-                            <form method="POST" action="{% url 'approve_borrow_request' req.pk %}"
-                                class="approve-form">
-                                {% csrf_token %}
-                                <input type="datetime-local" name="due_date" value="{{ default_due_date }}"
-                                    class="due-date-input">
-                                <button type="submit" class="btn-approve"
-                                    onclick="return confirm('Approve this request for {{ req.user.username }}?')">
-                                    ✓ Approve
-                                </button>
-                            </form>
-                            {% else %}
-                            <button class="btn-approve" disabled title="No copies available">✓ Approve</button>
-                            {% endif %}
-
-                            <form method="POST" action="{% url 'reject_borrow_request' req.pk %}"
-                                style="display:inline;">
-                                {% csrf_token %}
-                                <button type="submit" class="btn-reject"
-                                    onclick="return confirm('Reject this request for {{ req.user.username }}?')">
-                                    ✕ Reject
-                                </button>
-                            </form>
+                            <div class="actions-stack">
+                                {% if req.book.available_copies > 0 %}
+                                <div class="due-date-field">
+                                    <label class="due-date-label" for="due_date_{{ req.pk }}">Due date</label>
+                                    <input type="datetime-local" id="due_date_{{ req.pk }}" name="due_date"
+                                        form="approve_form_{{ req.pk }}" value="{{ default_due_date }}"
+                                        class="due-date-input" required>
+                                </div>
+                                {% endif %}
+                                <div class="action-buttons">
+                                    {% if req.book.available_copies > 0 %}
+                                    <form method="POST" action="{% url 'approve_borrow_request' req.pk %}"
+                                        id="approve_form_{{ req.pk }}" class="inline-form">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn-approve"
+                                            onclick="return confirm('Approve this request for {{ req.user.username }}?')">
+                                            ✓ Approve
+                                        </button>
+                                    </form>
+                                    {% else %}
+                                    <button class="btn-approve" disabled title="No copies available">✓ Approve</button>
+                                    {% endif %}
+                                    <form method="POST" action="{% url 'reject_borrow_request' req.pk %}"
+                                        class="inline-form">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn-reject"
+                                            onclick="return confirm('Reject this request for {{ req.user.username }}?')">
+                                            ✕ Reject
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
                         </td>
-                        <!-- Approve / Reject — side by side, vertically centred by vertical-align:middle on td -->
-                        <!-- <td class="req-actions">
-                            {% if req.book.available_copies > 0 %}
-                            <form method="POST" action="{% url 'approve_borrow_request' req.pk %}"
-                                style="display:inline;">
-                                {% csrf_token %}
-                                <button type="submit" class="btn-approve"
-                                    onclick="return confirm('Approve this request for {{ req.user.username }}?')">
-                                    ✓ Approve
-                                </button>
-                            </form>
-                            {% else %}
-                            <button class="btn-approve" disabled title="No copies available">✓ Approve</button>
-                            {% endif %}
-
-                            <form method="POST" action="{% url 'reject_borrow_request' req.pk %}"
-                                style="display:inline;">
-                                {% csrf_token %}
-                                <button type="submit" class="btn-reject"
-                                    onclick="return confirm('Reject this request for {{ req.user.username }}?')">
-                                    ✕ Reject
-                                </button>
-                            </form>
-                        </td> -->
 
                     </tr>
                     {% endfor %}
@@ -334,13 +319,49 @@
     }
 
     /* ---- Action buttons ---- */
-    /* The <td> itself is already vertical-align:middle; we just lay the
-       buttons side-by-side with a small gap using inline-flex */
     .req-actions {
-        white-space: nowrap;
+        white-space: normal;
+        min-width: 10rem;
     }
 
-    .req-actions form {
+    .actions-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .due-date-field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .due-date-label {
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+    }
+
+    .due-date-input {
+        padding: 0.35rem 0.5rem;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        font-size: 0.8rem;
+        width: 100%;
+        max-width: 210px;
+        box-sizing: border-box;
+    }
+
+    .action-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        align-items: center;
+    }
+
+    .inline-form {
         display: inline;
     }
 
@@ -356,7 +377,6 @@
         cursor: pointer;
         transition: var(--transition);
         white-space: nowrap;
-        margin-right: 0.4rem;
     }
 
     .btn-approve:hover:not(:disabled) {
@@ -422,22 +442,5 @@
     .req-empty p {
         font-size: 0.92rem;
     }
-
-    .due-date-input {
-    padding: 0.25rem 0.4rem;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    font-size: 0.75rem;
-    width: 160px;
-    margin-right: 0.3rem;
-}
-
-    .approve-form {
-        display: inline-flex;
-        flex-direction: column;
-        gap: 0.3rem;
-        vertical-align: middle;
-        margin-right: 0.4rem;
-}
 </style>
 {% endblock %}

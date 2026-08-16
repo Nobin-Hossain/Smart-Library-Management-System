@@ -36,5 +36,9 @@ urlpatterns = [
     # Admin Student History / Reliability
     path('students/', views.student_list, name='student_list'),
     path('students/<int:user_id>/history/', views.student_borrow_history, name='student_borrow_history'),
+
+    # Fine Management
+    path('fines/', views.admin_fine_list, name='admin_fine_list'),
+    path('fines/<int:fine_id>/mark-paid/', views.mark_fine_paid, name='mark_fine_paid'),
 ]
 
