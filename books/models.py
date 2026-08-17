@@ -211,6 +211,9 @@ class Notification(models.Model):
         return f"Notification for {self.user.username} [{read_status}]: {self.message[:50]}"
 
 
+# For managing Fines
+
+
 class Fine(models.Model):
 
     STATUS_UNPAID = "UNPAID"
@@ -247,3 +250,62 @@ class Fine(models.Model):
         return (
             f"Fine ৳{self.amount} for {self.transaction.user.username} [{self.status}]"
         )
+
+
+# Book Reservation
+
+
+class Reservation(models.Model):
+    STATUS_WAITING = "WAITING"
+    STATUS_NOTIFIED = "NOTIFIED"
+    STATUS_FULFILLED = "FULFILLED"
+    STATUS_EXPIRED = "EXPIRED"
+
+    STATUS_CHOICES = [
+        (STATUS_WAITING, "Waiting"),
+        (STATUS_NOTIFIED, "Notified"),
+        (STATUS_FULFILLED, "Fulfilled"),
+        (STATUS_EXPIRED, "Expired"),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="reservations",
+    )
+
+    book = models.ForeignKey(
+        Book,
+        on_delete=models.CASCADE,
+        related_name="reservations",
+    )
+
+    # Sets when Admin notifies the student - starts the 24-hour window
+    reservation_date = models.DateTimeField(auto_now_add=True)
+
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_WAITING,
+    )
+
+    notified_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["reservation_date"]  # queue order = oldest first
+        verbose_name = "Reservation"
+        verbose_name_plural = "Reservations"
+
+    def __str__(self):
+        return f"{self.user.username} - {self.book.title} [{self.status}]"
+
+    def hours_since_notified(self):
+        # Returns hours elapsed since notification, None if not notified
+        if not self.notified:
+            return None
+        return (timezone.now() - self.notified_at).total_seconds() / 3600
+
+    def is_expired(self):
+        # True if notified more than 24 hours ago and still not fulfilled
+        hours = self.hours_since_notified()
+        return hours is not None and hours > 24
