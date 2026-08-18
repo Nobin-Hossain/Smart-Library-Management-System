@@ -79,7 +79,11 @@
                                 <button type="submit" class="btn-borrow">Borrow Book</button>
                             </form>
                             {% else %}
-                            <span class="label-not-available">Not Available</span>
+                            <form method="POST" action="{% url 'create_reservation' book.book_id %}">
+                                {% csrf_token %}
+                                <button type = "submit" class = "btn-reserve">Reserve Book</button>
+                            </form>
+                            {% comment %} <span class="label-not-available">Not Available</span> {% endcomment %}
                             {% endif %}
                         </td>
                     </tr>
