@@ -289,7 +289,11 @@ class Reservation(models.Model):
         default=STATUS_WAITING,
     )
 
+    # Sets when Admin notifies this student - starts the countdown
     notified_at = models.DateTimeField(null=True, blank=True)
+
+    # Admin sets deadline for student to fulfill the reservation
+    deadline_hours = models.PositiveIntegerField(default=24)
 
     class Meta:
         ordering = ["reservation_date"]  # queue order = oldest first
@@ -301,11 +305,11 @@ class Reservation(models.Model):
 
     def hours_since_notified(self):
         # Returns hours elapsed since notification, None if not notified
-        if not self.notified:
+        if not self.notified_at:
             return None
         return (timezone.now() - self.notified_at).total_seconds() / 3600
 
     def is_expired(self):
         # True if notified more than 24 hours ago and still not fulfilled
         hours = self.hours_since_notified()
-        return hours is not None and hours > 24
+        return hours is not None and hours > self.deadline_hours

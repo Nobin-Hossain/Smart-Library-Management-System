@@ -17,6 +17,7 @@ from .models import (
     Notification,
     ReturnRequest,
     Fine,
+    Reservation,
 )
 from .forms import BookForm
 
@@ -763,3 +764,49 @@ def mark_fine_paid(request, fine_id):
         f"Fine of ৳{fine.amount} for {fine.transaction.user.username} marked as paid.",
     )
     return redirect("admin_fine_list")
+
+
+@login_required
+@role_required("student")
+def create_reservation(request, book_id):
+    # Allows a student to reserve a book if no copies are currently available.
+    # POST only. Notifies all admins that a new reservation was made.
+    if request.method != "POST":
+        return redirect("book_list_user")
+
+    book = get_object_or_404(Book, pk=book_id)
+
+    # Reserving Unavailable Books Only
+    if book.available_copies > 0:
+        messages.error(
+            request, "This book is currently available. Please borrow it instead."
+        )
+        return redirect("book_list_user")
+
+    # One student = One reserve (rule)
+    already_reserved = Reservation.objects.filter(
+        user=request.user,
+        status__in=[Reservation.STATUS_WAITING, Reservation.STATUS_NOTIFIED],
+    ).exists()
+
+    if already_reserved:
+        messages.error(request, "You already have an active reservation.")
+        return redirect("book_list_user")
+
+    Reservation.objects.create(user=request.user, book=book)
+
+    # Notifying the Admin about Reservation
+    admin_users = User.objects.filter(role="admin")
+    admin_notifications = [
+        Notification(
+            user=admin,
+            message=f"{request.user.username} has joined the reservation queue for '{book.title}'.",
+        )
+        for admin in admin_users
+    ]
+    Notification.objects.bulk_create(admin_notifications)
+
+    messages.success(
+        request, f'You have been added to the waiting list for "{book.title}".'
+    )
+    return redirect("book_list_user")
