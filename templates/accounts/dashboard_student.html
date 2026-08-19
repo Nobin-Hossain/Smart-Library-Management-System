@@ -39,11 +39,13 @@
         </div>
 
         <!-- Widget: Reservations -->
-        <div class="dashboard-card">
-            <h3>Reservations</h3>
-            <div class="stat-number">0</div>
-            <p class="activity-meta">Books reserved for pickup</p>
-        </div>
+        <a href="{% url 'my_reservations' %}" style="text-decoration: none; color: inherit;">
+            <div class="dashboard-card">
+                <h3>Reservations</h3>
+                <div class="stat-number">{% if active_reservation %}1{% else %}0{% endif %}</div>
+                <p class="activity-meta">Books reserved for pickup</p>
+            </div>
+        </a>
     </div>
 
     <div class="dashboard-grid" style="margin-top: 1.5rem;">

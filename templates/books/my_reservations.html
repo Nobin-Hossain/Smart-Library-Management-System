@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+
+{% block title %}My Reservations — Smart University Library{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="dashboard-header">
+        <div>
+            <h1>My Reservations</h1>
+            <p class="dashboard-subtitle">Track your book reservation status</p>
+        </div>
+        <div>
+            <span class="role-badge student">Student Access</span>
+        </div>
+    </div>
+
+    {% if reservation %}
+    <div class="card shadow-sm border rounded-3 mb-4">
+        <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+            <h3 class="h5 mb-0 text-primary fw-semibold">Active Reservation</h3>
+            {% if reservation.status == 'WAITING' %}
+            <span class="badge bg-secondary text-white px-3 py-2 fs-6">Waiting in Queue</span>
+            {% elif reservation.status == 'NOTIFIED' %}
+            <span class="badge bg-success text-white px-3 py-2 fs-6">Book Available</span>
+            {% endif %}
+        </div>
+        <div class="card-body p-4">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h4 class="fw-bold mb-2 text-dark">{{ reservation.book.title }}</h4>
+                    <p class="text-secondary mb-3">
+                        <strong>Author:</strong> {{ reservation.book.author }} &nbsp;|&nbsp;
+                        <strong>Category:</strong> {{ reservation.book.category }} &nbsp;|&nbsp;
+                        <strong>ISBN:</strong> {{ reservation.book.isbn }}
+                    </p>
+                    <div class="d-flex flex-wrap gap-4 text-muted small">
+                        <div>
+                            <strong>Reserved on:</strong> {{ reservation.reservation_date|date:"N j, Y, g:i A" }}
+                        </div>
+                    </div>
+
+                    {% if reservation.status == 'WAITING' %}
+                    <div class="mt-3 p-3 rounded-3" style="background-color: #f1f5f9;">
+                        <p class="mb-0 text-secondary">
+                            <strong>Queue Position:</strong> #{{ queue_position }} —
+                            You will be notified when the book becomes available and it's your turn.
+                        </p>
+                    </div>
+                    {% elif reservation.status == 'NOTIFIED' %}
+                    <div class="mt-3 p-3 rounded-3" style="background-color: var(--success-bg, #dcfce7);">
+                        <p class="mb-0" style="color: var(--success-text, #166534);">
+                            <strong>Notified {{ reservation.hours_since_notified|floatformat:1 }} hours ago</strong> —
+                            You have approximately <strong>{{ reservation.deadline_hours }} hours</strong> from notification
+                            ({% widthratio reservation.hours_since_notified 1 1 as elapsed %}about
+                            {{ reservation.deadline_hours|add:0 }} hours total,
+                            ~{{ reservation.hours_since_notified|floatformat:1 }} used) to submit a borrow request.
+                        </p>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                    {% if reservation.status == 'NOTIFIED' %}
+                    <a href="{% url 'book_list_user' %}" class="btn btn-primary px-4 py-2 fw-semibold">
+                        Browse Catalog to Borrow
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="card shadow-sm border text-center p-5 rounded-3">
+        <div class="card-body py-4">
+            <h3 class="h5 fw-bold text-secondary mb-2">No Active Reservation</h3>
+            <p class="text-muted mb-4">You don't have any active book reservations at the moment.</p>
+            <a href="{% url 'book_list_user' %}" class="btn btn-primary"
+                style="width: 220px; padding: 8px 16px; font-size: 1rem;">
+                Browse Book Catalog
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -404,7 +404,19 @@ def approve_borrow_request(request, request_id):
         request,
         f'Request approved. "{book.title}" has been issued to {student.username}.',
     )
+
+    # Fulfill a matching reservation if the student had one NOTIFIED for this book
+    matching_reservation = Reservation.objects.filter(
+        user=borrow_request.user,
+        book=book,
+        status=Reservation.STATUS_NOTIFIED,
+    ).first()
+    if matching_reservation:
+        matching_reservation.status = Reservation.STATUS_FULFILLED
+        matching_reservation.save(update_fields=["status"])
+
     return redirect("admin_request_list")
+
 
 
 @login_required
@@ -776,6 +788,18 @@ def create_reservation(request, book_id):
 
     book = get_object_or_404(Book, pk=book_id)
 
+    has_active_book = IssueTransaction.objects.filter(
+        user=request.user,
+        status=IssueTransaction.STATUS_ISSUED,
+    ).exists()
+
+    if has_active_book:
+        messages.error(
+            request,
+            "You currently have a book issued. Please return it before making a reservation.",
+        )
+        return redirect("book_list_user")
+
     # Reserving Unavailable Books Only
     if book.available_copies > 0:
         messages.error(
@@ -810,3 +834,168 @@ def create_reservation(request, book_id):
         request, f'You have been added to the waiting list for "{book.title}".'
     )
     return redirect("book_list_user")
+
+
+# ---------------------------------------------------------------------------
+# Student: My Reservations
+# ---------------------------------------------------------------------------
+
+
+@login_required
+@role_required("student")
+def my_reservations(request):
+    """
+    Displays the student's active reservation (WAITING or NOTIFIED), if any.
+    A student can hold at most one active reservation at a time.
+    """
+    active_reservation = Reservation.objects.filter(
+        user=request.user,
+        status__in=[Reservation.STATUS_WAITING, Reservation.STATUS_NOTIFIED],
+    ).select_related("book").first()
+
+    # Compute queue position for WAITING reservations
+    queue_position = None
+    if active_reservation and active_reservation.status == Reservation.STATUS_WAITING:
+        queue_position = Reservation.objects.filter(
+            book=active_reservation.book,
+            status=Reservation.STATUS_WAITING,
+            reservation_date__lt=active_reservation.reservation_date,
+        ).count() + 1
+
+    return render(
+        request,
+        "books/my_reservations.html",
+        {
+            "reservation": active_reservation,
+            "queue_position": queue_position,
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Admin: Reservation Queue Management
+# ---------------------------------------------------------------------------
+
+
+@login_required
+@role_required("admin")
+def admin_reservation_list(request):
+    """
+    Admin view listing all WAITING reservations grouped by book,
+    and all NOTIFIED reservations with their countdown status.
+    For each reservation, attaches the student's reliability badge.
+    """
+    waiting = (
+        Reservation.objects.filter(status=Reservation.STATUS_WAITING)
+        .select_related("user", "book")
+        .order_by("book", "reservation_date")
+    )
+
+    for res in waiting:
+        res.student_status = get_user_borrow_stats(res.user)["status"]
+
+    notified = (
+        Reservation.objects.filter(status=Reservation.STATUS_NOTIFIED)
+        .select_related("user", "book")
+        .order_by("reservation_date")
+    )
+
+    for res in notified:
+        res.student_status = get_user_borrow_stats(res.user)["status"]
+        res.hours_elapsed = round(res.hours_since_notified() or 0, 1)
+        res.hours_remaining = round(
+            max(res.deadline_hours - (res.hours_since_notified() or 0), 0), 1
+        )
+        res.expired = res.is_expired()
+
+    return render(
+        request,
+        "books/admin_reservation_list.html",
+        {
+            "waiting": waiting,
+            "notified": notified,
+        },
+    )
+
+
+@login_required
+@role_required("admin")
+def notify_reservation(request, reservation_id):
+    """
+    Admin notifies a student that their reserved book is available.
+    POST only. Sets status=NOTIFIED, records notified_at timestamp,
+    applies the custom deadline_hours, and fans out notifications to
+    the student and all librarians.
+    """
+    if request.method != "POST":
+        return redirect("admin_reservation_list")
+
+    reservation = get_object_or_404(Reservation, pk=reservation_id)
+
+    # Read admin-specified deadline, fallback to 24 hours
+    try:
+        deadline_hours = int(request.POST.get("deadline_hours", 24))
+    except (ValueError, TypeError):
+        deadline_hours = 24
+
+    reservation.status = Reservation.STATUS_NOTIFIED
+    reservation.notified_at = timezone.now()
+    reservation.deadline_hours = deadline_hours
+    reservation.save(update_fields=["status", "notified_at", "deadline_hours"])
+
+    student = reservation.user
+    book = reservation.book
+
+    # Notify the student
+    Notification.objects.create(
+        user=student,
+        message=(
+            f"'{book.title}' is available! "
+            f"You have {deadline_hours} hours to submit a borrow request."
+        ),
+    )
+
+    # Fan-out notification to ALL librarians
+    librarian_users = User.objects.filter(role="librarian")
+    librarian_notifications = [
+        Notification(
+            user=librarian,
+            message=(
+                f"{student.username} has been notified for '{book.title}', "
+                f"prepare to issue it."
+            ),
+        )
+        for librarian in librarian_users
+    ]
+    Notification.objects.bulk_create(librarian_notifications)
+
+    messages.success(
+        request,
+        f"{student.username} has been notified for \"{book.title}\" "
+        f"with a {deadline_hours}-hour deadline.",
+    )
+    return redirect("admin_reservation_list")
+
+
+@login_required
+@role_required("admin")
+def expire_reservation(request, reservation_id):
+    """
+    Admin manually expires a reservation whose deadline has passed.
+    POST only. Sets status=EXPIRED and redirects back to the reservation list.
+    Does NOT auto-notify the next student — admin picks manually per the
+    existing admin-discretion design.
+    """
+    if request.method != "POST":
+        return redirect("admin_reservation_list")
+
+    reservation = get_object_or_404(Reservation, pk=reservation_id)
+    reservation.status = Reservation.STATUS_EXPIRED
+    reservation.save(update_fields=["status"])
+
+    messages.info(
+        request,
+        f"Reservation for \"{reservation.book.title}\" by "
+        f"{reservation.user.username} has been expired.",
+    )
+    return redirect("admin_reservation_list")

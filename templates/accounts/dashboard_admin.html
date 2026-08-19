@@ -33,12 +33,14 @@
             </div>
         </a>
 
-        <!-- Widget: Branches -->
-        <div class="dashboard-card">
-            <h3>Connected Branches</h3>
-            <div class="stat-number">3</div>
-            <p class="activity-meta">Campus libraries configured</p>
-        </div>
+        <!-- Widget: Reservation Queue -->
+        <a href="{% url 'admin_reservation_list' %}" style="text-decoration: none; color: inherit;">
+            <div class="dashboard-card">
+                <h3>Reservation Queue</h3>
+                <div class="stat-number">{{ reservation_queue_count }}</div>
+                <p class="activity-meta">Active reservation{{ reservation_queue_count|pluralize }}</p>
+            </div>
+        </a>
     </div>
 
     <div class="dashboard-grid" style="margin-top: 1.5rem;">

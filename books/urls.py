@@ -66,4 +66,16 @@ urlpatterns = [
         views.create_reservation,
         name="create_reservation",
     ),
+    path("my-reservations/", views.my_reservations, name="my_reservations"),
+    path("reservations/", views.admin_reservation_list, name="admin_reservation_list"),
+    path(
+        "reservations/<int:reservation_id>/notify/",
+        views.notify_reservation,
+        name="notify_reservation",
+    ),
+    path(
+        "reservations/<int:reservation_id>/expire/",
+        views.expire_reservation,
+        name="expire_reservation",
+    ),
 ]

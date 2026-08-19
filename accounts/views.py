@@ -6,7 +6,7 @@ from django.db.models import Sum
 from .forms import UserRegistrationForm, UserLoginForm
 from .decorators import role_required
 from django.utils import timezone
-from books.models import IssueTransaction, ReturnRequest, Fine
+from books.models import IssueTransaction, ReturnRequest, Fine, Reservation
 
 User = get_user_model()
 
@@ -172,10 +172,17 @@ def student_dashboard(request):
     )
     total_fine_amount = unpaid_fines.aggregate(total=Sum("amount"))["total"] or 0
 
+    # Active reservation (WAITING or NOTIFIED) — at most one per student
+    active_reservation = Reservation.objects.filter(
+        user=request.user,
+        status__in=[Reservation.STATUS_WAITING, Reservation.STATUS_NOTIFIED],
+    ).first()
+
     context = {
         "books_borrowed_count": books_borrowed_count,
         "recent_activity": recent_activity,
         "total_fine_amount": total_fine_amount,
+        "active_reservation": active_reservation,
     }
     return render(request, "accounts/dashboard_student.html", context)
 
@@ -190,12 +197,18 @@ def admin_dashboard(request):
     total_unpaid_amount = unpaid_fines.aggregate(total=Sum("amount"))["total"] or 0
     unpaid_fines_count = unpaid_fines.count()
 
+    # Active reservation queue count (WAITING + NOTIFIED)
+    reservation_queue_count = Reservation.objects.filter(
+        status__in=[Reservation.STATUS_WAITING, Reservation.STATUS_NOTIFIED]
+    ).count()
+
     return render(
         request,
         "accounts/dashboard_admin.html",
         {
             "total_unpaid_amount": total_unpaid_amount,
             "unpaid_fines_count": unpaid_fines_count,
+            "reservation_queue_count": reservation_queue_count,
         },
     )
 
