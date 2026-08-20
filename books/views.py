@@ -903,8 +903,9 @@ def admin_reservation_list(request):
     for res in notified:
         res.student_status = get_user_borrow_stats(res.user)["status"]
         res.hours_elapsed = round(res.hours_since_notified() or 0, 1)
+        total_deadline = res.deadline_hours + (res.deadline_minutes / 60.0)
         res.hours_remaining = round(
-            max(res.deadline_hours - (res.hours_since_notified() or 0), 0), 1
+            max(total_deadline - (res.hours_since_notified() or 0), 0), 1
         )
         res.expired = res.is_expired()
 
@@ -932,26 +933,44 @@ def notify_reservation(request, reservation_id):
 
     reservation = get_object_or_404(Reservation, pk=reservation_id)
 
-    # Read admin-specified deadline, fallback to 24 hours
+    # Read admin-specified deadline (hours and minutes)
     try:
         deadline_hours = int(request.POST.get("deadline_hours", 24))
     except (ValueError, TypeError):
         deadline_hours = 24
 
+    try:
+        deadline_minutes = int(request.POST.get("deadline_minutes", 0))
+    except (ValueError, TypeError):
+        deadline_minutes = 0
+
+    if deadline_hours == 0 and deadline_minutes == 0:
+        messages.error(request, "Please set a deadline greater than 0")
+        return redirect("admin_reservation_list")
+
     reservation.status = Reservation.STATUS_NOTIFIED
     reservation.notified_at = timezone.now()
     reservation.deadline_hours = deadline_hours
-    reservation.save(update_fields=["status", "notified_at", "deadline_hours"])
+    reservation.deadline_minutes = deadline_minutes
+    reservation.save(update_fields=["status", "notified_at", "deadline_hours", "deadline_minutes"])
 
     student = reservation.user
     book = reservation.book
+
+    # Build deadline string for messages
+    deadline_parts = []
+    if deadline_hours > 0:
+        deadline_parts.append(f"{deadline_hours} hour{'s' if deadline_hours != 1 else ''}")
+    if deadline_minutes > 0:
+        deadline_parts.append(f"{deadline_minutes} minute{'s' if deadline_minutes != 1 else ''}")
+    deadline_str = " and ".join(deadline_parts)
 
     # Notify the student
     Notification.objects.create(
         user=student,
         message=(
             f"'{book.title}' is available! "
-            f"You have {deadline_hours} hours to submit a borrow request."
+            f"You have {deadline_str} to submit a borrow request."
         ),
     )
 
@@ -972,7 +991,7 @@ def notify_reservation(request, reservation_id):
     messages.success(
         request,
         f"{student.username} has been notified for \"{book.title}\" "
-        f"with a {deadline_hours}-hour deadline.",
+        f"with a {deadline_str} deadline.",
     )
     return redirect("admin_reservation_list")
 

@@ -294,6 +294,7 @@ class Reservation(models.Model):
 
     # Admin sets deadline for student to fulfill the reservation
     deadline_hours = models.PositiveIntegerField(default=24)
+    deadline_minutes = models.PositiveIntegerField(default=0)
 
     class Meta:
         ordering = ["reservation_date"]  # queue order = oldest first
@@ -310,6 +311,9 @@ class Reservation(models.Model):
         return (timezone.now() - self.notified_at).total_seconds() / 3600
 
     def is_expired(self):
-        # True if notified more than 24 hours ago and still not fulfilled
+        # True if notified more than deadline and still not fulfilled
         hours = self.hours_since_notified()
-        return hours is not None and hours > self.deadline_hours
+        if hours is None:
+            return False
+        total_deadline_hours = self.deadline_hours + (self.deadline_minutes / 60.0)
+        return hours > total_deadline_hours

@@ -75,17 +75,25 @@
                             <span class="req-time">{{ res.reservation_date|time:"g:i A" }}</span>
                         </td>
 
-                        <!-- Deadline hours input + Notify button -->
+                        <!-- Deadline hours & minutes input + Notify button -->
                         <td class="req-actions">
                             <div class="actions-stack">
                                 <form method="POST" action="{% url 'notify_reservation' res.pk %}"
                                     id="notify_form_{{ res.pk }}" class="inline-form">
                                     {% csrf_token %}
-                                    <div class="due-date-field">
-                                        <label class="due-date-label" for="deadline_{{ res.pk }}">Deadline</label>
-                                        <input type="number" id="deadline_{{ res.pk }}" name="deadline_hours"
-                                            value="24" min="1" max="168" class="due-date-input"
-                                            style="max-width: 100px;">
+                                    <div class="due-date-field" style="gap: 0.5rem;">
+                                        <div>
+                                            <label class="due-date-label" for="deadline_hours_{{ res.pk }}">Hours</label>
+                                            <input type="number" id="deadline_hours_{{ res.pk }}" name="deadline_hours"
+                                                value="24" min="0" class="due-date-input"
+                                                style="max-width: 80px;">
+                                        </div>
+                                        <div>
+                                            <label class="due-date-label" for="deadline_minutes_{{ res.pk }}">Minutes</label>
+                                            <input type="number" id="deadline_minutes_{{ res.pk }}" name="deadline_minutes"
+                                                value="0" min="0" max="59" class="due-date-input"
+                                                style="max-width: 80px;">
+                                        </div>
                                     </div>
                                     <div class="action-buttons" style="margin-top: 0.4rem;">
                                         <button type="submit" class="btn-approve"
@@ -184,7 +192,7 @@
                             {% else %}
                             <div class="cell-stack">
                                 <span style="font-weight: 600; color: var(--secondary-color);">
-                                    {{ res.hours_elapsed }}h elapsed / {{ res.deadline_hours }}h total
+                                    {{ res.hours_elapsed }}h elapsed / {{ res.deadline_hours }}h {% if res.deadline_minutes > 0 %}{{ res.deadline_minutes }}m {% endif %}total
                                 </span>
                                 <span class="cell-muted">
                                     ~{{ res.hours_remaining }}h remaining
