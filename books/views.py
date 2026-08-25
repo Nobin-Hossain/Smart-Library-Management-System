@@ -418,7 +418,6 @@ def approve_borrow_request(request, request_id):
     return redirect("admin_request_list")
 
 
-
 @login_required
 @role_required("admin")
 def reject_borrow_request(request, request_id):
@@ -630,6 +629,7 @@ def approve_return_request(request, request_id):
     student = transaction.user
 
     FINE_PER_DAY = 25
+    FULL_PRICE_THRESHOLD_DAYS = 5
 
     # Execute transaction mark_as_returned and request approval atomically
     with db_transaction.atomic():
@@ -639,10 +639,20 @@ def approve_return_request(request, request_id):
 
         days_late = (transaction.return_date.date() - transaction.due_date.date()).days
         if days_late > 0:
+            admin_reason = request.POST.get("custom_reason", "").strip()
+
+            if days_late >= FULL_PRICE_THRESHOLD_DAYS:
+                fine_amount = book.price
+                default_reason = f"{days_late} day(s) overdue - full book price charged"
+
+            else:
+                fine_amount = days_late * FINE_PER_DAY
+                default_reason = f"{days_late} day(s) overdue"
+
             Fine.objects.create(
                 transaction=transaction,
-                amount=days_late * FINE_PER_DAY,
-                reason=f"{days_late} day(s) overdue",
+                amount=fine_amount,
+                reason=admin_reason if admin_reason else default_reason,
             )
 
     # Notify student that their return has been confirmed
@@ -848,19 +858,26 @@ def my_reservations(request):
     Displays the student's active reservation (WAITING or NOTIFIED), if any.
     A student can hold at most one active reservation at a time.
     """
-    active_reservation = Reservation.objects.filter(
-        user=request.user,
-        status__in=[Reservation.STATUS_WAITING, Reservation.STATUS_NOTIFIED],
-    ).select_related("book").first()
+    active_reservation = (
+        Reservation.objects.filter(
+            user=request.user,
+            status__in=[Reservation.STATUS_WAITING, Reservation.STATUS_NOTIFIED],
+        )
+        .select_related("book")
+        .first()
+    )
 
     # Compute queue position for WAITING reservations
     queue_position = None
     if active_reservation and active_reservation.status == Reservation.STATUS_WAITING:
-        queue_position = Reservation.objects.filter(
-            book=active_reservation.book,
-            status=Reservation.STATUS_WAITING,
-            reservation_date__lt=active_reservation.reservation_date,
-        ).count() + 1
+        queue_position = (
+            Reservation.objects.filter(
+                book=active_reservation.book,
+                status=Reservation.STATUS_WAITING,
+                reservation_date__lt=active_reservation.reservation_date,
+            ).count()
+            + 1
+        )
 
     return render(
         request,
@@ -952,7 +969,9 @@ def notify_reservation(request, reservation_id):
     reservation.notified_at = timezone.now()
     reservation.deadline_hours = deadline_hours
     reservation.deadline_minutes = deadline_minutes
-    reservation.save(update_fields=["status", "notified_at", "deadline_hours", "deadline_minutes"])
+    reservation.save(
+        update_fields=["status", "notified_at", "deadline_hours", "deadline_minutes"]
+    )
 
     student = reservation.user
     book = reservation.book
@@ -960,9 +979,13 @@ def notify_reservation(request, reservation_id):
     # Build deadline string for messages
     deadline_parts = []
     if deadline_hours > 0:
-        deadline_parts.append(f"{deadline_hours} hour{'s' if deadline_hours != 1 else ''}")
+        deadline_parts.append(
+            f"{deadline_hours} hour{'s' if deadline_hours != 1 else ''}"
+        )
     if deadline_minutes > 0:
-        deadline_parts.append(f"{deadline_minutes} minute{'s' if deadline_minutes != 1 else ''}")
+        deadline_parts.append(
+            f"{deadline_minutes} minute{'s' if deadline_minutes != 1 else ''}"
+        )
     deadline_str = " and ".join(deadline_parts)
 
     # Notify the student
@@ -990,7 +1013,7 @@ def notify_reservation(request, reservation_id):
 
     messages.success(
         request,
-        f"{student.username} has been notified for \"{book.title}\" "
+        f'{student.username} has been notified for "{book.title}" '
         f"with a {deadline_str} deadline.",
     )
     return redirect("admin_reservation_list")
@@ -1014,7 +1037,7 @@ def expire_reservation(request, reservation_id):
 
     messages.info(
         request,
-        f"Reservation for \"{reservation.book.title}\" by "
+        f'Reservation for "{reservation.book.title}" by '
         f"{reservation.user.username} has been expired.",
     )
     return redirect("admin_reservation_list")
