@@ -79,7 +79,9 @@
                         <td class="req-actions">
                             <form method="POST" action="{% url 'approve_return_request' req.pk %}" style="display:inline;">
                                 {% csrf_token %}
+                                {% if req.is_overdue %}
                                 <input type="text" name = "custom_reason" placeholder = "Reason (Optional)" class = "due-date-input">
+                                {% endif %}
                                 <button type="submit" class="btn-approve"
                                     onclick="return confirm('Approve return of \'{{ req.transaction.book.title|escapejs }}\' from {{ req.transaction.user.username }}?')">
                                     ✓ Approve Return
