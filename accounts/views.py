@@ -15,6 +15,7 @@ from django.http import HttpResponseNotAllowed
 
 User = get_user_model()
 
+
 def get_dashboard_redirect(user):
     """
     Helper function to determine the correct dashboard URL based on User role.
@@ -83,6 +84,17 @@ def login_view(request):
                     # Fallback if no user is found with that email
                     pass
 
+            # Before authenticate(), user is searched by username using is_active
+            try:
+                target_user = User.objects.get(username=username)
+                if not target_user.is_active and target_user.check_password(password):
+                    messages.error(
+                        request, "You have been blocked. Please, contact the Admin."
+                    )
+                    return render(request, "accounts/login.html", {"form": form})
+            except User.DoesNotExist:
+                pass
+
             # Authenticate user credentials
             user = authenticate(request, username=username, password=password)
 
@@ -103,7 +115,9 @@ def login_view(request):
                     )
                     return redirect(get_dashboard_redirect(user))
                 else:
-                    messages.error(request, "You have been blocked. Please, contact the Admin.")
+                    messages.error(
+                        request, "You have been blocked. Please, contact the Admin."
+                    )
             else:
                 messages.error(request, "Invalid username/email or password.")
         else:
@@ -207,8 +221,8 @@ def admin_dashboard(request):
     ).count()
 
     # Real user stats
-    total_students = User.objects.filter(role='student').count()
-    total_librarians = User.objects.filter(role='librarian').count()
+    total_students = User.objects.filter(role="student").count()
+    total_librarians = User.objects.filter(role="librarian").count()
     total_users = total_students + total_librarians
 
     return render(
@@ -229,20 +243,20 @@ def user_management_list(request):
     """
     Lists students and librarians for the administrator.
     """
-    
-    students = User.objects.filter(role='student').order_by('username')
+
+    students = User.objects.filter(role="student").order_by("username")
     for student in students:
         student.borrow_stats = get_user_borrow_stats(student)
 
-    librarians = User.objects.filter(role='librarian').order_by('username')
+    librarians = User.objects.filter(role="librarian").order_by("username")
 
     context = {
-        'students': students,
-        'librarians': librarians,
-        'total_students': students.count(),
-        'total_librarians': librarians.count(),
+        "students": students,
+        "librarians": librarians,
+        "total_students": students.count(),
+        "total_librarians": librarians.count(),
     }
-    return render(request, 'accounts/user_management_list.html', context)
+    return render(request, "accounts/user_management_list.html", context)
 
 
 @login_required
@@ -251,20 +265,24 @@ def edit_user(request, user_id):
     """
     Allows admin to edit user details (excluding password).
     """
-    
+
     user = get_object_or_404(User, pk=user_id)
     if request.method == "POST":
         form = UserEditForm(request.POST, instance=user)
         if form.is_valid():
             form.save()
-            messages.success(request, f"User details for {user.username} updated successfully.")
-            return redirect('user_management_list')
+            messages.success(
+                request, f"User details for {user.username} updated successfully."
+            )
+            return redirect("user_management_list")
         else:
             messages.error(request, "Please correct the errors below.")
     else:
         form = UserEditForm(instance=user)
 
-    return render(request, 'accounts/edit_user.html', {'form': form, 'user_to_edit': user})
+    return render(
+        request, "accounts/edit_user.html", {"form": form, "user_to_edit": user}
+    )
 
 
 @login_required
@@ -274,21 +292,23 @@ def toggle_user_block(request, user_id):
     Toggles is_active status of a student user. Librarians and admins cannot be blocked here.
     Only allows POST requests.
     """
-    
+
     if request.method != "POST":
         # Standard approach is HTTP 405 Method Not Allowed or similar, but the user specifies POST only.
         # We can use Django's HttpResponseNotAllowed or return custom forbidden/error, let's return a 405.
         return HttpResponseNotAllowed(["POST"])
 
-    student = get_object_or_404(User, pk=user_id, role='student')
+    student = get_object_or_404(User, pk=user_id, role="student")
     student.is_active = not student.is_active
     student.save()
 
     if student.is_active:
-        messages.success(request, f"Student {student.username} has been unblocked successfully.")
+        messages.success(
+            request, f"Student {student.username} has been unblocked successfully."
+        )
     else:
         messages.success(request, "You have been blocked. Please, contact the Admin.")
-    return redirect('user_management_list')
+    return redirect("user_management_list")
 
 
 def forbidden_view(request):
