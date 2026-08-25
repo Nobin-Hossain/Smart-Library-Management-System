@@ -307,7 +307,9 @@ def toggle_user_block(request, user_id):
             request, f"Student {student.username} has been unblocked successfully."
         )
     else:
-        messages.success(request, "You have been blocked. Please, contact the Admin.")
+        messages.success(
+            request, f"Student {student.username} has been blocked successfully."
+        )
     return redirect("user_management_list")
 
 
