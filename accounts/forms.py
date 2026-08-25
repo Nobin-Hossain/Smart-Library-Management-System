@@ -116,3 +116,42 @@ class UserLoginForm(forms.Form):
         label="Remember Me",
         widget=forms.CheckboxInput(attrs={'class': 'remember-me-checkbox'})
     )
+
+
+class UserEditForm(forms.ModelForm):
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'first_name', 'last_name', 'student_id', 'department']
+        widgets = {
+            'username': forms.TextInput(attrs={'class': 'form-control'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'first_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'student_id': forms.TextInput(attrs={'class': 'form-control'}),
+            'department': forms.Select(attrs={'class': 'form-select'}),
+        }
+
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        # Ensure email uniqueness, ignoring current instance
+        if User.objects.filter(email__iexact=email).exclude(pk=self.instance.pk).exists():
+            raise ValidationError("A user with this email already exists.")
+        return email
+
+    def clean(self):
+        cleaned_data = super().clean()
+        role = self.instance.role
+        student_id = cleaned_data.get("student_id")
+        department = cleaned_data.get("department")
+
+        if role == 'student':
+            if not student_id:
+                self.add_error('student_id', "Student ID is required for student accounts.")
+            if not department:
+                self.add_error('department', "Department is required for student accounts.")
+        else:
+            # Clear student_id and department if not a student
+            cleaned_data['student_id'] = None
+            cleaned_data['department'] = None
+
+        return cleaned_data

@@ -18,11 +18,13 @@
 
     <div class="dashboard-grid">
         <!-- Widget: Total registered users -->
-        <div class="dashboard-card">
-            <h3>Total Users Registered</h3>
-            <div class="stat-number">350</div>
-            <p class="activity-meta">Students, Librarians, and Admins</p>
-        </div>
+        <a href="{% url 'user_management_list' %}" style="text-decoration: none; color: inherit;">
+            <div class="dashboard-card">
+                <h3>Total Users Registered</h3>
+                <div class="stat-number">{{ total_users }}</div>
+                <p class="activity-meta">Students and Librarians</p>
+            </div>
+        </a>
 
         <!-- Widget: Unpaid fines -->
         <a href="{% url 'admin_fine_list' %}" style="text-decoration: none; color: inherit;">

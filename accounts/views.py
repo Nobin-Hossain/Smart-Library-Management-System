@@ -7,9 +7,13 @@ from .forms import UserRegistrationForm, UserLoginForm
 from .decorators import role_required
 from django.utils import timezone
 from books.models import IssueTransaction, ReturnRequest, Fine, Reservation
+from books.views import get_user_borrow_stats
+from django.shortcuts import get_object_or_404
+from .forms import UserEditForm
+from django.views.decorators.http import require_POST
+from django.http import HttpResponseNotAllowed
 
 User = get_user_model()
-
 
 def get_dashboard_redirect(user):
     """
@@ -99,7 +103,7 @@ def login_view(request):
                     )
                     return redirect(get_dashboard_redirect(user))
                 else:
-                    messages.error(request, "This account has been deactivated.")
+                    messages.error(request, "You have been blocked. Please, contact the Admin.")
             else:
                 messages.error(request, "Invalid username/email or password.")
         else:
@@ -202,6 +206,11 @@ def admin_dashboard(request):
         status__in=[Reservation.STATUS_WAITING, Reservation.STATUS_NOTIFIED]
     ).count()
 
+    # Real user stats
+    total_students = User.objects.filter(role='student').count()
+    total_librarians = User.objects.filter(role='librarian').count()
+    total_users = total_students + total_librarians
+
     return render(
         request,
         "accounts/dashboard_admin.html",
@@ -209,8 +218,77 @@ def admin_dashboard(request):
             "total_unpaid_amount": total_unpaid_amount,
             "unpaid_fines_count": unpaid_fines_count,
             "reservation_queue_count": reservation_queue_count,
+            "total_users": total_users,
         },
     )
+
+
+@login_required
+@role_required("admin")
+def user_management_list(request):
+    """
+    Lists students and librarians for the administrator.
+    """
+    
+    students = User.objects.filter(role='student').order_by('username')
+    for student in students:
+        student.borrow_stats = get_user_borrow_stats(student)
+
+    librarians = User.objects.filter(role='librarian').order_by('username')
+
+    context = {
+        'students': students,
+        'librarians': librarians,
+        'total_students': students.count(),
+        'total_librarians': librarians.count(),
+    }
+    return render(request, 'accounts/user_management_list.html', context)
+
+
+@login_required
+@role_required("admin")
+def edit_user(request, user_id):
+    """
+    Allows admin to edit user details (excluding password).
+    """
+    
+    user = get_object_or_404(User, pk=user_id)
+    if request.method == "POST":
+        form = UserEditForm(request.POST, instance=user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"User details for {user.username} updated successfully.")
+            return redirect('user_management_list')
+        else:
+            messages.error(request, "Please correct the errors below.")
+    else:
+        form = UserEditForm(instance=user)
+
+    return render(request, 'accounts/edit_user.html', {'form': form, 'user_to_edit': user})
+
+
+@login_required
+@role_required("admin")
+def toggle_user_block(request, user_id):
+    """
+    Toggles is_active status of a student user. Librarians and admins cannot be blocked here.
+    Only allows POST requests.
+    """
+    
+    if request.method != "POST":
+        # Standard approach is HTTP 405 Method Not Allowed or similar, but the user specifies POST only.
+        # We can use Django's HttpResponseNotAllowed or return custom forbidden/error, let's return a 405.
+        return HttpResponseNotAllowed(["POST"])
+
+    student = get_object_or_404(User, pk=user_id, role='student')
+    student.is_active = not student.is_active
+    student.save()
+
+    if student.is_active:
+        messages.success(request, f"Student {student.username} has been unblocked successfully.")
+    else:
+        messages.success(request, "You have been blocked. Please, contact the Admin.")
+    return redirect('user_management_list')
 
 
 def forbidden_view(request):

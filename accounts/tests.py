@@ -271,3 +271,86 @@ class StudentRegistrationValidationTest(TestCase):
         form = UserRegistrationForm(data=data)
         self.assertFalse(form.is_valid())
         self.assertIn('department', form.errors)
+
+
+class UserManagementAdminTests(TestCase):
+    def setUp(self):
+        self.admin_user = User.objects.create_superuser(
+            username='AdminUser',
+            email='admin@example.com',
+            password='password123',
+            role='admin'
+        )
+        self.student_user = User.objects.create_user(
+            username='StudentUser',
+            email='student@example.com',
+            password='password123',
+            role='student',
+            student_id='9999',
+            department='BCSE'
+        )
+        self.librarian_user = User.objects.create_user(
+            username='LibrarianUser',
+            email='librarian@example.com',
+            password='password123',
+            role='librarian'
+        )
+
+    def test_admin_dashboard_user_counts(self):
+        self.client.force_login(self.admin_user)
+        response = self.client.get('/dashboard/admin/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['total_users'], 2)
+
+    def test_user_management_list_view(self):
+        self.client.force_login(self.admin_user)
+        response = self.client.get('/dashboard/admin/users/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(self.student_user, response.context['students'])
+        self.assertIn(self.librarian_user, response.context['librarians'])
+
+    def test_edit_user_get(self):
+        self.client.force_login(self.admin_user)
+        response = self.client.get(f'/dashboard/admin/users/{self.student_user.id}/edit/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'StudentUser')
+
+    def test_edit_user_post(self):
+        self.client.force_login(self.admin_user)
+        data = {
+            'username': 'UpdatedStudent',
+            'email': 'updated@example.com',
+            'first_name': 'NewFirst',
+            'last_name': 'NewLast',
+            'student_id': '8888',
+            'department': 'BEEE'
+        }
+        response = self.client.post(f'/dashboard/admin/users/{self.student_user.id}/edit/', data)
+        self.assertRedirects(response, '/dashboard/admin/users/')
+        self.student_user.refresh_from_db()
+        self.assertEqual(self.student_user.username, 'UpdatedStudent')
+        self.assertEqual(self.student_user.email, 'updated@example.com')
+        self.assertEqual(self.student_user.student_id, '8888')
+
+    def test_toggle_user_block_post(self):
+        self.client.force_login(self.admin_user)
+        self.assertTrue(self.student_user.is_active)
+        response = self.client.post(f'/dashboard/admin/users/{self.student_user.id}/toggle-block/')
+        self.assertRedirects(response, '/dashboard/admin/users/')
+        self.student_user.refresh_from_db()
+        self.assertFalse(self.student_user.is_active)
+
+        # Toggle back
+        response = self.client.post(f'/dashboard/admin/users/{self.student_user.id}/toggle-block/')
+        self.student_user.refresh_from_db()
+        self.assertTrue(self.student_user.is_active)
+
+    def test_toggle_user_block_get_not_allowed(self):
+        self.client.force_login(self.admin_user)
+        response = self.client.get(f'/dashboard/admin/users/{self.student_user.id}/toggle-block/')
+        self.assertEqual(response.status_code, 405)
+
+    def test_toggle_user_block_librarian_not_found(self):
+        self.client.force_login(self.admin_user)
+        response = self.client.post(f'/dashboard/admin/users/{self.librarian_user.id}/toggle-block/')
+        self.assertEqual(response.status_code, 404)
