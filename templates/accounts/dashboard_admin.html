@@ -46,22 +46,25 @@
     </div>
 
     <div class="dashboard-grid" style="margin-top: 1.5rem;">
-        <!-- Card: System Logs -->
+        <!-- Card: Recent Activity -->
         <div class="dashboard-card" style="grid-column: span 2;">
-            <h3>System Status & Logs</h3>
+            <h3>Recent Activity</h3>
             <ul class="activity-list">
+                {% if recent_activity %}
+                {% for activity in recent_activity %}
                 <li class="activity-item">
-                    <div style="font-family: monospace; font-size: 0.85rem;">[2026-07-16 14:02:11] INFO: Applied 19
-                        database migrations successfully.</div>
+                    <div style="font-family: monospace; font-size: 0.85rem;">
+                    [{{ activity.created_at|date:"M, d, Y, g:i A" }}] {{ activity.message }}
+                    </div>
                 </li>
+                {% endfor %}
+                {% else %}
                 <li class="activity-item">
-                    <div style="font-family: monospace; font-size: 0.85rem;">[2026-07-16 11:22:50] WARNING: staticfiles
-                        cache cleared.</div>
+                    <div style="font-family: monospace; font-size: 0.85rem;">
+                    No recent activity yet.
+                    </div>
                 </li>
-                <li class="activity-item">
-                    <div style="font-family: monospace; font-size: 0.85rem;">[2026-07-16 09:00:03] SUCCESS: Custom User
-                        authentication models mapping loaded.</div>
-                </li>
+                {% endif %}
             </ul>
         </div>
 

@@ -6,7 +6,13 @@ from django.db.models import Sum
 from .forms import UserRegistrationForm, UserLoginForm
 from .decorators import role_required
 from django.utils import timezone
-from books.models import IssueTransaction, ReturnRequest, Fine, Reservation
+from books.models import (
+    IssueTransaction,
+    ReturnRequest,
+    Fine,
+    Reservation,
+    Notification,
+)
 from books.views import get_user_borrow_stats
 from django.shortcuts import get_object_or_404
 from .forms import UserEditForm
@@ -225,6 +231,11 @@ def admin_dashboard(request):
     total_librarians = User.objects.filter(role="librarian").count()
     total_users = total_students + total_librarians
 
+    # Recent Activity Feed
+    recent_activity = Notification.objects.filter(user__role="admin").order_by(
+        "-created_at"
+    )[:10]
+
     return render(
         request,
         "accounts/dashboard_admin.html",
@@ -233,6 +244,7 @@ def admin_dashboard(request):
             "unpaid_fines_count": unpaid_fines_count,
             "reservation_queue_count": reservation_queue_count,
             "total_users": total_users,
+            "recent_activity": recent_activity,
         },
     )
 
