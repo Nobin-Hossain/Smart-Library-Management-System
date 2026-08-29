@@ -512,12 +512,18 @@ def my_borrowed_books(request):
         else False
     )
 
+    # Check if the active book is currently overdue
+    is_overdue = (
+        timezone.now().date() > active_issue.due_date.date() if active_issue else False
+    )
+
     return render(
         request,
         "books/my_borrowed_books.html",
         {
             "active_issue": active_issue,
             "has_pending_return": has_pending_return,
+            "is_overdue": is_overdue,
         },
     )
 
@@ -553,9 +559,13 @@ def request_return(request, transaction_id):
         )
         return redirect("my_borrowed_books")
 
+    student_reason = request.POST.get("student_reason", "").strip()
+
     # Create the return request
     ReturnRequest.objects.create(
-        transaction=transaction, status=ReturnRequest.STATUS_PENDING
+        transaction=transaction,
+        status=ReturnRequest.STATUS_PENDING,
+        student_reason=student_reason,
     )
 
     # Notify all admins so they can review and approve the return
@@ -647,8 +657,6 @@ def approve_return_request(request, request_id):
 
         days_late = (transaction.return_date.date() - transaction.due_date.date()).days
         if days_late > 0:
-            admin_reason = request.POST.get("custom_reason", "").strip()
-
             if days_late >= FULL_PRICE_THRESHOLD_DAYS:
                 fine_amount = book.price
                 default_reason = f"{days_late} day(s) overdue - full book price charged"
@@ -657,10 +665,16 @@ def approve_return_request(request, request_id):
                 fine_amount = days_late * FINE_PER_DAY
                 default_reason = f"{days_late} day(s) overdue"
 
+            final_reason = (
+                return_request.student_reason
+                if return_request.student_reason
+                else default_reason
+            )
+
             Fine.objects.create(
                 transaction=transaction,
                 amount=fine_amount,
-                reason=admin_reason if admin_reason else default_reason,
+                reason=final_reason,
             )
 
     # Notify student that their return has been confirmed

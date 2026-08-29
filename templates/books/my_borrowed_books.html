@@ -48,6 +48,9 @@
                     <form method="POST" action="{% url 'request_return' active_issue.transaction_id %}"
                         style="display:inline;">
                         {% csrf_token %}
+                        {% if is_overdue %}
+                        <input type = "text" name = "student_reason" placeholder = "Reason for Late Return" class="form-control mb-2" style = "max-width : 300 px; display : inline-block;">
+                        {% endif %}
                         <button type="submit" class="btn btn-warning px-4 py-2 fw-semibold text-dark">
                             Return Book
                         </button>

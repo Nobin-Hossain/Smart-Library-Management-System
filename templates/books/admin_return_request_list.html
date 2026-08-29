@@ -26,6 +26,9 @@
                         <th>Book Details</th>
                         <th>Category</th>
                         <th>Requested On</th>
+                        {% if req.student_reason %}
+                        <th>Overdue Reason</th>
+                        {% endif %}
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -75,13 +78,17 @@
                             <span class="req-time">{{ req.request_date|time:"g:i A" }}</span>
                         </td>
 
+                        <!-- Overdue Reason -->
+                        <td class="class">
+                            {% if req.student_reason %}
+                                <span class = "category-chip" style = "font-style : italic;">{{ req.student_reason }}</span>
+                            {% endif %}
+                        </td>
+
                         <!-- Actions -->
                         <td class="req-actions">
                             <form method="POST" action="{% url 'approve_return_request' req.pk %}" style="display:inline;">
                                 {% csrf_token %}
-                                {% if req.is_overdue %}
-                                <input type="text" name = "custom_reason" placeholder = "Reason (Optional)" class = "due-date-input">
-                                {% endif %}
                                 <button type="submit" class="btn-approve"
                                     onclick="return confirm('Approve return of \'{{ req.transaction.book.title|escapejs }}\' from {{ req.transaction.user.username }}?')">
                                     ✓ Approve Return

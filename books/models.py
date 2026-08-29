@@ -176,6 +176,8 @@ class ReturnRequest(models.Model):
         default=STATUS_PENDING,
     )
 
+    student_reason = models.CharField(max_length=255, blank=True)
+
     class Meta:
         ordering = ["-request_date"]
         verbose_name = "Return Request"
