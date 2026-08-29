@@ -611,19 +611,38 @@ def admin_return_request_list(request):
         .order_by("request_date")
     )
 
-    # Estimate whether each return is already overdue (based on today's date)
-    # So the template can conditionally display the reason text box
+    # Check each pending return for overdue status. If overdue, flag the page
+    # (has_any_overdue) so the template shows the column, and set a display
+    # reason — the student's own text if given, otherwise an estimated fallback.
+    today = timezone.now().date()
+    has_any_overdue = False
+
     for rr in pending_returns:
-        estimated_days_late = (
-            timezone.now().date() - rr.transaction.due_date.date()
-        ).days
-        rr.is_overdue = estimated_days_late > 0
+        due = rr.transaction.due_date.date()
+        rr.is_overdue = today > due
+
+        if rr.is_overdue:
+            has_any_overdue = True
+            estimated_days_late = (today - due).days
+            rr.display_reason = (
+                rr.student_reason
+                if rr.student_reason
+                else f"{estimated_days_late} day(s) overdue (estimated)"
+            )
+        else:
+            rr.display_reason = ""
+    # for rr in pending_returns:
+    #     estimated_days_late = (
+    #         timezone.now().date() - rr.transaction.due_date.date()
+    #     ).days
+    #     rr.is_overdue = estimated_days_late > 0
 
     return render(
         request,
         "books/admin_return_request_list.html",
         {
             "pending_returns": pending_returns,
+            "has_any_overdue": has_any_overdue,
         },
     )
 
