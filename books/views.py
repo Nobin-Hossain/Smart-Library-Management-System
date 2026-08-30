@@ -9,6 +9,7 @@ from django.db import transaction as db_transaction
 import datetime
 from django.utils import timezone
 from django.core.mail import send_mail
+from django.conf import settings
 
 from accounts.decorators import role_required
 from .models import (
@@ -394,7 +395,7 @@ def approve_borrow_request(request, request_id):
             f"Please return it by {issue.due_date.strftime('%b %d, %Y, %I:%M %p')}.\n\n"
             f"Thank you,\nSmartLibrary"
         ),
-        from_email="22303019@iubat.edu",
+        from_email=settings.EMAIL_HOST_USER,
         recipient_list=[student.email],
         fail_silently=True,  # Approve process continues even if email fails
     )
@@ -690,6 +691,9 @@ def approve_return_request(request, request_id):
         return_request.save(update_fields=["status"])
 
         days_late = (transaction.return_date.date() - transaction.due_date.date()).days
+
+        fine_created = False  # For sending mail
+
         if days_late > 0:
             if days_late >= FULL_PRICE_THRESHOLD_DAYS:
                 fine_amount = book.price
@@ -705,11 +709,28 @@ def approve_return_request(request, request_id):
                 else default_reason
             )
 
-            Fine.objects.create(
+            fine = Fine.objects.create(
                 transaction=transaction,
                 amount=fine_amount,
                 reason=final_reason,
             )
+            fine_created = True
+
+    # Sending Fine Email to students
+    if fine_created:
+        send_mail(
+            subject="Library Fine Notice",
+            message=(
+                f"Hi {student.username},\n\n"
+                f"A fine of ৳{fine.amount} has been charged for '{book.title}'.\n"
+                f"Reason: {fine.reason}\n\n"
+                f"Please contact the library to settle this fine.\n\n"
+                f"Thank you,\nSmartLibrary"
+            ),
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[student.email],
+            fail_silently=True,
+        )
 
     # Notify student that their return has been confirmed
     Notification.objects.create(
@@ -1062,7 +1083,7 @@ def notify_reservation(request, reservation_id):
             f"You have {deadline_str} to submit a borrow request.\n\n"
             f"Thank you,\nSmartLibrary"
         ),
-        from_email="22303019@iubat.edu",
+        from_email=settings.EMAIL_HOST_USER,
         recipient_list=[student.email],
         fail_silently=True,
     )
