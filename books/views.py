@@ -8,6 +8,7 @@ from django.http import HttpResponseForbidden
 from django.db import transaction as db_transaction
 import datetime
 from django.utils import timezone
+from django.core.mail import send_mail
 
 from accounts.decorators import role_required
 from .models import (
@@ -382,6 +383,20 @@ def approve_borrow_request(request, request_id):
             f"Your request for '{book.title}' has been approved. "
             f"Return by {issue.due_date.strftime('%b %d, %Y, %I:%M %p')}."
         ),
+    )
+
+    # Sending mail to the user about the approval of the request
+    send_mail(
+        subject="Your Borrow Request has been Approved",
+        message=(
+            f"Hi {student.username},\n\n"
+            f"Your request for '{book.title}' has been approved.\n"
+            f"Please return it by {issue.due_date.strftime('%b %d, %Y, %I:%M %p')}.\n\n"
+            f"Thank you,\nSmartLibrary"
+        ),
+        from_email="22303019@iubat.edu",
+        recipient_list=[student.email],
+        fail_silently=True,  # Approve process continues even if email fails
     )
 
     # Fan-out notification to ALL librarians so they know to physically hand
@@ -1036,6 +1051,20 @@ def notify_reservation(request, reservation_id):
             f"'{book.title}' is available! "
             f"You have {deadline_str} to submit a borrow request."
         ),
+    )
+
+    # Notify the student via email as well
+    send_mail(
+        subject=f"'{book.title}' is now available!",
+        message=(
+            f"Hi {student.username},\n\n"
+            f"The book '{book.title}' you reserved is now available.\n"
+            f"You have {deadline_str} to submit a borrow request.\n\n"
+            f"Thank you,\nSmartLibrary"
+        ),
+        from_email="22303019@iubat.edu",
+        recipient_list=[student.email],
+        fail_silently=True,
     )
 
     # Fan-out notification to ALL librarians
