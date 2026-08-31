@@ -78,4 +78,6 @@ urlpatterns = [
         views.expire_reservation,
         name="expire_reservation",
     ),
+    # Chatbot widget API
+    path("chatbot/", views.chatbot_view, name="chatbot"),
 ]

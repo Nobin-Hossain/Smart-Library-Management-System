@@ -319,3 +319,36 @@ class Reservation(models.Model):
             return False
         total_deadline_hours = self.deadline_hours + (self.deadline_minutes / 60.0)
         return hours > total_deadline_hours
+
+
+# ---------------------------------------------------------------------------
+# Chatbot
+# ---------------------------------------------------------------------------
+
+
+class ChatMessage(models.Model):
+    """
+    Stores a single chatbot exchange (one user message + one bot response)
+    for a given student. Used to populate the floating widget with persistent
+    history across page navigations.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="chat_messages",
+    )
+    user_message = models.TextField()
+    bot_response = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+        verbose_name = "Chat Message"
+        verbose_name_plural = "Chat Messages"
+
+    def __str__(self):
+        return (
+            f"[{self.created_at:%Y-%m-%d %H:%M}] "
+            f"{self.user.username}: {self.user_message[:50]}"
+        )

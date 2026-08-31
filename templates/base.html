@@ -16,6 +16,9 @@
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+
     <!-- Load custom static CSS -->
     {% load static %}
     <link rel="stylesheet" href="{% static 'css/styles.css' %}?v=5">
@@ -80,6 +83,365 @@
         {% block content %}
         {% endblock %}
     </main>
+
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    {% if user.is_authenticated and user.role == 'student' %}
+    <!-- ================================================================
+         Floating Chatbot Widget — student only
+         All CSS is scoped with .cb- prefix to avoid page-style conflicts.
+    ================================================================ -->
+    <style>
+      /* ---- Layout ---- */
+      .cb-toggle {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        border: none;
+        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        color: #fff;
+        font-size: 1.5rem;
+        cursor: pointer;
+        box-shadow: 0 4px 20px rgba(79,70,229,.45);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        transition: transform .2s ease, box-shadow .2s ease;
+      }
+      .cb-toggle:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 28px rgba(79,70,229,.6);
+      }
+
+      .cb-window {
+        position: fixed;
+        bottom: 90px;
+        right: 20px;
+        width: 320px;
+        height: 450px;
+        border-radius: 18px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 12px 40px rgba(0,0,0,.28);
+        z-index: 9998;
+        background: #1e1b2e;
+        border: 1px solid rgba(255,255,255,.08);
+        transform: translateY(20px);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .25s ease, transform .25s ease;
+      }
+      .cb-window.cb-open {
+        opacity: 1;
+        transform: translateY(0);
+        pointer-events: all;
+      }
+
+      /* ---- Header ---- */
+      .cb-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 16px;
+        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        color: #fff;
+        flex-shrink: 0;
+      }
+      .cb-header-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+        font-size: .95rem;
+        letter-spacing: .01em;
+      }
+      .cb-header-title i { font-size: 1.1rem; }
+      .cb-close-btn {
+        background: none;
+        border: none;
+        color: rgba(255,255,255,.8);
+        font-size: 1.3rem;
+        cursor: pointer;
+        line-height: 1;
+        padding: 2px 4px;
+        border-radius: 6px;
+        transition: background .15s;
+      }
+      .cb-close-btn:hover { background: rgba(255,255,255,.15); color: #fff; }
+
+      /* ---- Messages ---- */
+      .cb-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 14px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        scrollbar-width: thin;
+        scrollbar-color: #4f46e5 transparent;
+      }
+      .cb-messages::-webkit-scrollbar { width: 4px; }
+      .cb-messages::-webkit-scrollbar-thumb { background: #4f46e5; border-radius: 4px; }
+
+      /* Bubble base */
+      .cb-bubble {
+        max-width: 82%;
+        padding: 9px 13px;
+        border-radius: 14px;
+        font-size: .845rem;
+        line-height: 1.45;
+        word-break: break-word;
+        animation: cb-pop .18s ease;
+      }
+      @keyframes cb-pop {
+        from { transform: scale(.92); opacity: 0; }
+        to   { transform: scale(1);   opacity: 1; }
+      }
+      .cb-bubble-user {
+        align-self: flex-end;
+        background: linear-gradient(135deg, #4f46e5, #7c3aed);
+        color: #fff;
+        border-bottom-right-radius: 4px;
+      }
+      .cb-bubble-bot {
+        align-self: flex-start;
+        background: rgba(255,255,255,.07);
+        color: #e2e0f0;
+        border-bottom-left-radius: 4px;
+        border: 1px solid rgba(255,255,255,.1);
+      }
+
+      /* Typing indicator */
+      .cb-typing {
+        align-self: flex-start;
+        display: flex;
+        gap: 4px;
+        padding: 10px 14px;
+        background: rgba(255,255,255,.07);
+        border-radius: 14px;
+        border-bottom-left-radius: 4px;
+        border: 1px solid rgba(255,255,255,.1);
+      }
+      .cb-typing span {
+        width: 7px; height: 7px;
+        border-radius: 50%;
+        background: #7c7aed;
+        animation: cb-bounce .9s infinite;
+      }
+      .cb-typing span:nth-child(2) { animation-delay: .15s; }
+      .cb-typing span:nth-child(3) { animation-delay: .30s; }
+      @keyframes cb-bounce {
+        0%,80%,100% { transform: translateY(0); }
+        40%          { transform: translateY(-6px); }
+      }
+
+      /* ---- Footer / Input area ---- */
+      .cb-footer {
+        padding: 10px 10px;
+        background: #16132a;
+        border-top: 1px solid rgba(255,255,255,.07);
+        display: flex;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+      .cb-input {
+        flex: 1;
+        background: rgba(255,255,255,.06);
+        border: 1px solid rgba(255,255,255,.12);
+        border-radius: 10px;
+        color: #e2e0f0;
+        font-size: .84rem;
+        padding: 8px 12px;
+        outline: none;
+        transition: border-color .2s;
+      }
+      .cb-input::placeholder { color: rgba(255,255,255,.3); }
+      .cb-input:focus { border-color: #7c3aed; }
+      .cb-send-btn {
+        background: linear-gradient(135deg, #4f46e5, #7c3aed);
+        border: none;
+        border-radius: 10px;
+        color: #fff;
+        width: 38px;
+        height: 38px;
+        cursor: pointer;
+        font-size: 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform .15s, box-shadow .15s;
+        flex-shrink: 0;
+      }
+      .cb-send-btn:hover {
+        transform: scale(1.08);
+        box-shadow: 0 3px 10px rgba(79,70,229,.5);
+      }
+      .cb-send-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+    </style>
+
+    <!-- Widget HTML -->
+    <button id="cb-toggle-btn"
+            class="cb-toggle"
+            aria-label="Open library chatbot"
+            onclick="cbToggle()">
+      <i class="bi bi-chat-dots-fill"></i>
+    </button>
+
+    <div id="cb-window" class="cb-window" role="dialog" aria-label="Library chatbot">
+      <div class="cb-header">
+        <div class="cb-header-title">
+          <i class="bi bi-robot"></i>
+          Library Assistant
+        </div>
+        <button class="cb-close-btn" aria-label="Close chatbot" onclick="cbToggle()">
+          <i class="bi bi-x"></i>
+        </button>
+      </div>
+
+      <div class="cb-messages" id="cb-messages"></div>
+
+      <div class="cb-footer">
+        <input id="cb-input"
+               class="cb-input"
+               type="text"
+               placeholder="Ask me anything…"
+               autocomplete="off"
+               aria-label="Chat message input"
+               onkeydown="if(event.key==='Enter'){cbSend();}">
+        <button id="cb-send-btn"
+                class="cb-send-btn"
+                aria-label="Send message"
+                onclick="cbSend()">
+          <i class="bi bi-send"></i>
+        </button>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        /* ---- State ---- */
+        var cbOpened = false;          // true once history has been loaded
+        var cbUrl   = '{% url "chatbot" %}';
+
+        /* ---- CSRF helper ---- */
+        function getCsrfToken() {
+          var m = document.cookie.match(/csrftoken=([^;]+)/);
+          return m ? m[1] : '';
+        }
+
+        /* ---- DOM refs ---- */
+        function win()  { return document.getElementById('cb-window'); }
+        function msgs() { return document.getElementById('cb-messages'); }
+        function inp()  { return document.getElementById('cb-input'); }
+        function btn()  { return document.getElementById('cb-send-btn'); }
+
+        /* ---- Scroll ---- */
+        function cbScroll() {
+          var m = msgs();
+          m.scrollTop = m.scrollHeight;
+        }
+
+        /* ---- Append bubble ---- */
+        function cbAppend(text, role) {
+          var div = document.createElement('div');
+          div.className = 'cb-bubble ' + (role === 'user' ? 'cb-bubble-user' : 'cb-bubble-bot');
+          div.textContent = text;
+          msgs().appendChild(div);
+          cbScroll();
+          return div;
+        }
+
+        /* ---- Typing indicator ---- */
+        function cbShowTyping() {
+          var d = document.createElement('div');
+          d.className = 'cb-typing';
+          d.id = 'cb-typing-indicator';
+          d.innerHTML = '<span></span><span></span><span></span>';
+          msgs().appendChild(d);
+          cbScroll();
+        }
+        function cbHideTyping() {
+          var el = document.getElementById('cb-typing-indicator');
+          if (el) el.remove();
+        }
+
+        /* ---- Load history (GET) ---- */
+        function cbLoadHistory() {
+          fetch(cbUrl, {
+            method: 'GET',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+          })
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            var hist = data.history || [];
+            if (hist.length === 0) {
+              cbAppend('Hello! I\'m your library assistant. Ask me about your fines, borrowed books, reservations, or available titles!', 'bot');
+            } else {
+              hist.forEach(function(entry) {
+                cbAppend(entry.user_message, 'user');
+                cbAppend(entry.bot_response, 'bot');
+              });
+            }
+            cbScroll();
+          })
+          .catch(function() {
+            cbAppend('Could not load chat history.', 'bot');
+          });
+        }
+
+        /* ---- Toggle widget ---- */
+        window.cbToggle = function() {
+          var w = win();
+          var isOpen = w.classList.toggle('cb-open');
+          if (isOpen && !cbOpened) {
+            cbOpened = true;
+            cbLoadHistory();
+          }
+          if (isOpen) { inp().focus(); }
+        };
+
+        /* ---- Send message (POST) ---- */
+        window.cbSend = function() {
+          var message = inp().value.trim();
+          if (!message) return;
+
+          inp().value = '';
+          btn().disabled = true;
+          cbAppend(message, 'user');
+          cbShowTyping();
+
+          var formData = new FormData();
+          formData.append('message', message);
+          formData.append('csrfmiddlewaretoken', getCsrfToken());
+
+          fetch(cbUrl, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: formData
+          })
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            cbHideTyping();
+            cbAppend(data.response || 'Sorry, something went wrong.', 'bot');
+          })
+          .catch(function() {
+            cbHideTyping();
+            cbAppend('Network error. Please try again.', 'bot');
+          })
+          .finally(function() {
+            btn().disabled = false;
+            inp().focus();
+          });
+        };
+      })();
+    </script>
+    {% endif %}
 
     <!-- Simple Footer -->
     <footer class="footer">

@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.db.models import Sum, Q, F
 from django.contrib.auth import get_user_model
 from django.core.paginator import Paginator
-from django.http import HttpResponseForbidden
+from django.http import HttpResponseForbidden, JsonResponse
 from django.db import transaction as db_transaction
 import datetime
 from django.utils import timezone
@@ -12,6 +12,8 @@ from django.core.mail import send_mail
 from django.conf import settings
 
 from accounts.decorators import role_required
+from google import genai
+
 from .models import (
     Book,
     BorrowRequest,
@@ -20,10 +22,18 @@ from .models import (
     ReturnRequest,
     Fine,
     Reservation,
+    ChatMessage,
 )
 from .forms import BookForm
 
 User = get_user_model()
+
+# ---------------------------------------------------------------------------
+# Gemini AI — module-level client (new google-genai SDK, runs once at import)
+# ---------------------------------------------------------------------------
+
+gemini_client = genai.Client(api_key=settings.GEMINI_API_KEY)
+GEMINI_MODEL = "gemini-3.6-flash"
 
 
 # ---------------------------------------------------------------------------
@@ -1132,3 +1142,134 @@ def expire_reservation(request, reservation_id):
         f"{reservation.user.username} has been expired.",
     )
     return redirect("admin_reservation_list")
+
+
+# ---------------------------------------------------------------------------
+# Chatbot
+# ---------------------------------------------------------------------------
+
+
+def get_bot_response(message, user):
+    """
+    Database-first chatbot response helper.
+
+    Checks the message against known keywords and queries the database to
+    build a personalised answer. Falls back to Gemini for all other queries.
+
+    Args:
+        message (str): The raw message text from the student.
+        user: The authenticated Django user instance.
+
+    Returns:
+        str: A plain-text response to display in the chatbot widget.
+    """
+    msg = message.lower()
+
+    # --- Fines ---
+    if "fine" in msg:
+        total = (
+            Fine.objects.filter(
+                transaction__user=user, status=Fine.STATUS_UNPAID
+            ).aggregate(total=Sum("amount"))["total"]
+            or 0
+        )
+        if total:
+            return f"You have ৳{total:.2f} in unpaid fines. Please clear them at the library counter."
+        return "You have no outstanding fines. "
+
+    # --- Borrowed books ---
+    if "borrowed" in msg or "my book" in msg:
+        transaction = IssueTransaction.objects.filter(
+            user=user, status=IssueTransaction.STATUS_ISSUED
+        ).first()
+        if transaction:
+            due = transaction.due_date.strftime("%d %b %Y, %I:%M %p")
+            return (
+                f'You currently have "{transaction.book.title}" borrowed. '
+                f"It is due on {due}."
+            )
+        return "You have no books currently borrowed."
+
+    # --- Reservations ---
+    if "reservation" in msg:
+        reservation = Reservation.objects.filter(
+            user=user,
+            status__in=[Reservation.STATUS_WAITING, Reservation.STATUS_NOTIFIED],
+        ).first()
+        if reservation:
+            status_label = (
+                "Waiting" if reservation.status == Reservation.STATUS_WAITING else "Notified"
+            )
+            return (
+                f'Your reservation for "{reservation.book.title}" is currently '
+                f"{status_label}."
+            )
+        return "You have no active reservations."
+
+    # --- Available books ---
+    if "available" in msg:
+        available_books = Book.objects.filter(available_copies__gt=0)[:5]
+        if available_books:
+            titles = ", ".join(f'"{b.title}"' for b in available_books)
+            return f"Here are some available books: {titles}."
+        return "Sorry, no books are currently available."
+
+    # --- Library hours ---
+    if any(kw in msg for kw in ("hours", "open", "timing")):
+        return (
+            "Library hours: Mon\u2013Fri 8:00\u202fAM\u2013 10:00\u202fPM, "
+            "Sat\u2013Sun 10:00\u202fAM\u2013 6:00\u202fPM."
+        )
+
+    # --- Gemini fallback ---
+    try:
+        prompt = (
+            "You are a helpful university library assistant. "
+            "Answer the student's question concisely and politely.\n\n"
+            f"Student: {message}"
+        )
+        response = gemini_client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=prompt,
+        )
+        return response.text.strip()
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).error("Gemini API error: %s", exc, exc_info=True)
+        return (
+            "I'm sorry, I couldn't process your request right now. "
+            "Please try again or visit the library desk for assistance."
+        )
+
+
+@login_required
+def chatbot_view(request):
+    """
+    Serves the floating chatbot widget's API endpoint.
+
+    GET  — Returns the authenticated student's full chat history as JSON so
+           the widget can render previous messages on first open.
+    POST — Accepts a 'message' field, generates a bot response via
+           get_bot_response(), persists the exchange in ChatMessage, and
+           returns the response as JSON.
+
+    Does not render an HTML page; all output is JSON for fetch() consumption.
+    """
+    if request.method == "GET":
+        history = ChatMessage.objects.filter(user=request.user).values(
+            "user_message", "bot_response"
+        )
+        return JsonResponse({"history": list(history)})
+
+    # POST
+    user_message = request.POST.get("message", "").strip()
+    if not user_message:
+        return JsonResponse({"error": "Empty message."}, status=400)
+
+    bot_response = get_bot_response(user_message, request.user)
+    ChatMessage.objects.create(
+        user=request.user,
+        user_message=user_message,
+        bot_response=bot_response,
+    )
+    return JsonResponse({"response": bot_response})
