@@ -694,6 +694,9 @@ def approve_return_request(request, request_id):
     FINE_PER_DAY = 25
     FULL_PRICE_THRESHOLD_DAYS = 5
 
+    # For sending mail after atomic block
+    next_reservation = None
+
     # Execute transaction mark_as_returned and request approval atomically
     with db_transaction.atomic():
         transaction.mark_as_returned()
@@ -725,6 +728,20 @@ def approve_return_request(request, request_id):
                 reason=final_reason,
             )
             fine_created = True
+
+        # Automatically notify the next student in the reservation queue, if any
+        next_reservation = (
+            Reservation.objects.filter(book=book, status=Reservation.STATUS_WAITING)
+            .order_by("reservation_date")
+            .first()
+        )
+
+        if next_reservation and book.available_copies > 0:
+            next_reservation.status = Reservation.STATUS_NOTIFIED
+            next_reservation.notified_at = timezone.now()
+            next_reservation.deadline_hours = 0
+            next_reservation.deadline_minutes = 25
+            next_reservation.save()
 
     # Sending Fine Email to students
     if fine_created:
@@ -758,6 +775,37 @@ def approve_return_request(request, request_id):
         for librarian in librarian_users
     ]
     Notification.objects.bulk_create(librarian_notifications)
+
+    # If a next reservation was auto-notified, send that student in-app + email notification
+    if next_reservation and next_reservation.status == Reservation.STATUS_NOTIFIED:
+        reserved_student = next_reservation.user
+
+        Notification.objects.create(
+            user=reserved_student,
+            message=f"'{book.title}' is now available! You have 25 minutes to submit a borrow request.",
+        )
+
+        send_mail(
+            subject=f"'{book.title}' is now available!",
+            message=(
+                f"Hi {reserved_student.username},\n\n"
+                f"The book '{book.title}' you reserved is now available.\n"
+                f"You have 25 minutes to submit a borrow request.\n\n"
+                f"Thank you,\nSmartLibrary"
+            ),
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[reserved_student.email],
+            fail_silently=True,
+        )
+
+        reservation_librarian_notifications = [
+            Notification(
+                user=librarian,
+                message=f"{reserved_student.username} has been auto-notified for '{book.title}', prepare to issue it.",
+            )
+            for librarian in librarian_users
+        ]
+        Notification.objects.bulk_create(reservation_librarian_notifications)
 
     messages.success(
         request,
@@ -1183,7 +1231,9 @@ def get_bot_response(message, user):
             user=user, status=IssueTransaction.STATUS_ISSUED
         ).first()
         if transaction:
-            due = transaction.due_date.strftime("%d %b %Y, %I:%M %p")
+            due = timezone.localtime(transaction.due_date).strftime(
+                "%d %b %Y, %I:%M %p"
+            )
             return (
                 f'You currently have "{transaction.book.title}" borrowed. '
                 f"It is due on {due}."
@@ -1198,7 +1248,9 @@ def get_bot_response(message, user):
         ).first()
         if reservation:
             status_label = (
-                "Waiting" if reservation.status == Reservation.STATUS_WAITING else "Notified"
+                "Waiting"
+                if reservation.status == Reservation.STATUS_WAITING
+                else "Notified"
             )
             return (
                 f'Your reservation for "{reservation.book.title}" is currently '
@@ -1235,6 +1287,7 @@ def get_bot_response(message, user):
         return response.text.strip()
     except Exception as exc:
         import logging
+
         logging.getLogger(__name__).error("Gemini API error: %s", exc, exc_info=True)
         return (
             "I'm sorry, I couldn't process your request right now. "
