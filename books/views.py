@@ -229,6 +229,18 @@ def create_borrow_request(request, book_id):
 
     book = get_object_or_404(Book, pk=book_id)
 
+    # Student having fine can not request for a book
+    has_unpaid_fine = Fine.objects.filter(
+        transaction__user=request.user, status=Fine.STATUS_UNPAID
+    ).exists()
+
+    if has_unpaid_fine:
+        messages.error(
+            request,
+            "You have unpaid fines. Please pay them before requesting a new book.",
+        )
+        return redirect("book_list_user")
+
     # Business rule: a student can hold AT MOST ONE active book at a time.
     # Check (a): does the student already have an issued (unreturned) book?
     already_issued = IssueTransaction.objects.filter(
@@ -933,6 +945,19 @@ def create_reservation(request, book_id):
 
     book = get_object_or_404(Book, pk=book_id)
 
+    # Student with fine can not reserve a book
+    has_unpaid_fine = Fine.objects.filter(
+        transaction__user=request.user, status=Fine.STATUS_UNPAID
+    ).exists()
+
+    if has_unpaid_fine:
+        messages.error(
+            request,
+            "You have unpaid fines. Please pay them before making a reservation.",
+        )
+        return redirect("book_list_user")
+
+    # Checking whether a student has an active book issued or not
     has_active_book = IssueTransaction.objects.filter(
         user=request.user,
         status=IssueTransaction.STATUS_ISSUED,
