@@ -1364,11 +1364,22 @@ def download_fine_report(request):
     response = HttpResponse(content_type="application/pdf")
     response["Content-Disposition"] = 'attachment; filename="fine_report.pdf"'
 
+    # Time of pdf download for display in the report header
+    download_time_str = timezone.localtime().strftime("%b %d, %Y %I:%M %p")
+
     p = canvas.Canvas(response)
     y = 800
 
     p.setFont("Helvetica-Bold", 14)
     p.drawString(50, y, "SmartLibrary - Fine Report")
+    y -= 30
+
+    # Showing the download time in the Header of the PDF
+    p.setFont("Helvetica", 9)
+    p.setFillColorRGB(0.4, 0.4, 0.4)
+    p.drawRightString(550, y, f"Downloaded On: {download_time_str}")
+    p.setFillColorRGB(0, 0, 0)  # টেক্সটের রং ব্যাক টু ব্ল্যাক
+
     y -= 30
 
     fines = Fine.objects.select_related("transaction__user", "transaction__book").all()
@@ -1405,19 +1416,24 @@ def download_fine_report(request):
         p.drawString(60, y - 60, f"Book: {book.title} by {book.author}")
         p.drawString(60, y - 75, f"ISBN: {book.isbn}  |  Category: {book.category}")
 
-        # Issue, Due, and Return Dates
-        p.drawString(60, y - 90, f"Issue Date: {transaction.issue_date}")
-        p.drawString(
-            60,
-            y - 105,
-            f"Due Date: {transaction.due_date.strftime('%b %d, %Y %I:%M %p')}",
+        # Issue, Due & Return Date fixed in local time
+        if hasattr(transaction.issue_date, "strftime"):
+            issue_str = transaction.issue_date.strftime("%b %d, %Y")
+        else:
+            issue_str = str(transaction.issue_date or "-")
+
+        due_str = timezone.localtime(transaction.due_date).strftime(
+            "%b %d, %Y %I:%M %p"
         )
 
         return_str = (
-            transaction.return_date.strftime("%b %d, %Y %I:%M %p")
+            timezone.localtime(transaction.return_date).strftime("%b %d, %Y %I:%M %p")
             if transaction.return_date
             else "Not returned yet"
         )
+
+        p.drawString(60, y - 90, f"Issue Date: {issue_str}")
+        p.drawString(60, y - 105, f"Due Date: {due_str}")
         p.drawString(60, y - 120, f"Return Date: {return_str}")
 
         # Fine Details
@@ -1433,10 +1449,12 @@ def download_fine_report(request):
             p.drawString(60, y - current_offset, "Payment Method : Cash")
             current_offset += 15
 
+        # Fine Created At fixed in Local Time
+        created_str = timezone.localtime(fine.created_at).strftime("%b %d, %Y %I:%M %p")
         p.drawString(
             60,
             y - current_offset,
-            f"Fine Created: {fine.created_at.strftime('%b %d, %Y %I:%M %p')}",
+            f"Fine Created: {created_str}",
         )
         current_offset += 15
 
@@ -1462,6 +1480,9 @@ def download_single_fine_report(request, fine_id):
     student = fine.transaction.user
     book = fine.transaction.book
     transaction = fine.transaction
+
+    # Time of the PDF report download
+    download_time_str = timezone.localtime().strftime("%b %d, %Y %I:%M %p")
 
     # Serial number sent from the admin fine list template for display in the PDF filename
     sl_no = request.GET.get("sl", fine.pk)
@@ -1508,14 +1529,20 @@ def download_single_fine_report(request, fine_id):
     # Header Right Side Info
     p.setFont("Helvetica-Bold", 11)
     p.setFillColor(colors.white)
-    p.drawRightString(width - 40, height - 42, f"REF # {sl_no}")
+    p.drawRightString(width - 40, height - 35, f"REF # {sl_no}")
 
     p.setFont("Helvetica", 9)
     p.setFillColor(colors.HexColor("#CBD5E1"))
+    created_dt_str = timezone.localtime(fine.created_at).strftime("%b %d, %Y")
     p.drawRightString(
         width - 40,
-        height - 60,
-        f"Fine Creation Date: {fine.created_at.strftime('%b %d, %Y')}",
+        height - 52,
+        f"Fine Creation Date: {created_dt_str}",
+    )
+    p.drawRightString(
+        width - 40,
+        height - 66,
+        f"Downloaded On: {download_time_str}",
     )
 
     y = height - 125
@@ -1586,12 +1613,15 @@ def download_single_fine_report(request, fine_id):
         box_y - 36,
     )
 
-    issue_str = (
-        transaction.issue_date.strftime("%b %d, %Y")
-        if hasattr(transaction.issue_date, "strftime")
-        else str(transaction.issue_date)
-    )
-    due_str = transaction.due_date.strftime("%b %d, %Y %I:%M %p")
+    # DateField: Format plain date without timezone conversion
+    if hasattr(transaction.issue_date, "strftime"):
+        issue_str = transaction.issue_date.strftime("%b %d, %Y")
+    else:
+        issue_str = str(transaction.issue_date or "-")
+
+    # DateTimeField: Convert UTC to local time
+    due_str = timezone.localtime(transaction.due_date).strftime("%b %d, %Y %I:%M %p")
+
     draw_row(
         "Issue / Due Date:",
         f"{issue_str}   to   {due_str}",
@@ -1639,8 +1669,10 @@ def download_single_fine_report(request, fine_id):
 
     draw_row("Reason for Fine:", fine.reason or "-", 55, 155, y)
     y -= 16
+
+    # DateTimeField: Convert UTC to local time
     return_str = (
-        transaction.return_date.strftime("%b %d, %Y %I:%M %p")
+        timezone.localtime(transaction.return_date).strftime("%b %d, %Y %I:%M %p")
         if transaction.return_date
         else "Not returned yet"
     )
