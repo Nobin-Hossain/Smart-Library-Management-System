@@ -1286,6 +1286,27 @@ def get_bot_response(message, user):
             )
         return "You have no active reservations."
 
+    # Genre based search
+    if any(kw in msg for kw in ("genre", "category", "categories")):
+        # Adding order_by("category") to remove Meta.ordering conflict
+        raw_categories = (
+            Book.objects.exclude(category__isnull=True)
+            .exclude(category__exact="")
+            .values_list("category", flat=True)
+            .order_by("category")
+            .distinct()
+        )
+
+        # Removing space and adjusting case for better display
+        unique_categories = sorted(
+            list({c.strip().title() for c in raw_categories if c and c.strip()})
+        )
+
+        if unique_categories:
+            category_list = ", ".join(unique_categories)
+            return f"We have books in these categories: {category_list}."
+        return "No categories found in the catalog yet."
+
     # --- Available books ---
     if "available" in msg:
         available_books = Book.objects.filter(available_copies__gt=0)[:5]
