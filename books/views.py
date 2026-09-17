@@ -1399,7 +1399,7 @@ def download_fine_report(request):
     p.setFont("Helvetica", 9)
     p.setFillColorRGB(0.4, 0.4, 0.4)
     p.drawRightString(550, y, f"Downloaded On: {download_time_str}")
-    p.setFillColorRGB(0, 0, 0)  # টেক্সটের রং ব্যাক টু ব্ল্যাক
+    p.setFillColorRGB(0, 0, 0)
 
     y -= 30
 
