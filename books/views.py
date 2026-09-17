@@ -4,12 +4,15 @@ from django.contrib import messages
 from django.db.models import Sum, Q, F
 from django.contrib.auth import get_user_model
 from django.core.paginator import Paginator
-from django.http import HttpResponseForbidden, JsonResponse
+from django.http import HttpResponseForbidden, JsonResponse, HttpResponse
 from django.db import transaction as db_transaction
 import datetime
 from django.utils import timezone
 from django.core.mail import send_mail
 from django.conf import settings
+from reportlab.pdfgen import canvas
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
 
 from accounts.decorators import role_required
 from google import genai
@@ -1351,3 +1354,315 @@ def chatbot_view(request):
         bot_response=bot_response,
     )
     return JsonResponse({"response": bot_response})
+
+
+# PDF generation for Fine Report
+@login_required
+@role_required("admin")
+def download_fine_report(request):
+    # generates a pdf report of all fines with student, book and fine info
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = 'attachment; filename="fine_report.pdf"'
+
+    p = canvas.Canvas(response)
+    y = 800
+
+    p.setFont("Helvetica-Bold", 14)
+    p.drawString(50, y, "SmartLibrary - Fine Report")
+    y -= 30
+
+    fines = Fine.objects.select_related("transaction__user", "transaction__book").all()
+
+    for fine in fines:
+        # Start a new page if we're running out of space
+        if y < 220:
+            p.showPage()
+            p.setFont("Helvetica", 10)  # Reset font for new page
+            y = 800
+
+        student = fine.transaction.user
+        book = fine.transaction.book
+        transaction = fine.transaction
+
+        # Saving the top position of the box for drawing a separator line later
+        box_top = y
+
+        # Student Details
+        p.setFont("Helvetica", 10)
+        p.drawString(
+            60,
+            y - 15,
+            f"Student: {student.get_full_name() or student.username} (@{student.username})",
+        )
+        p.drawString(60, y - 30, f"Student ID: {student.student_id or '-'}")
+        p.drawString(
+            60,
+            y - 45,
+            f"Department: {student.department or '-'}  |  Email: {student.email}",
+        )
+
+        # Book Details
+        p.drawString(60, y - 60, f"Book: {book.title} by {book.author}")
+        p.drawString(60, y - 75, f"ISBN: {book.isbn}  |  Category: {book.category}")
+
+        # Issue, Due, and Return Dates
+        p.drawString(60, y - 90, f"Issue Date: {transaction.issue_date}")
+        p.drawString(
+            60,
+            y - 105,
+            f"Due Date: {transaction.due_date.strftime('%b %d, %Y %I:%M %p')}",
+        )
+
+        return_str = (
+            transaction.return_date.strftime("%b %d, %Y %I:%M %p")
+            if transaction.return_date
+            else "Not returned yet"
+        )
+        p.drawString(60, y - 120, f"Return Date: {return_str}")
+
+        # Fine Details
+        p.drawString(
+            60,
+            y - 135,
+            f"Fine Amount: Tk {fine.amount}  |  Status: {fine.status}",
+        )
+        p.drawString(60, y - 150, f"Reason: {fine.reason}")
+
+        current_offset = 165
+        if fine.status == Fine.STATUS_PAID:
+            p.drawString(60, y - current_offset, "Payment Method : Cash")
+            current_offset += 15
+
+        p.drawString(
+            60,
+            y - current_offset,
+            f"Fine Created: {fine.created_at.strftime('%b %d, %Y %I:%M %p')}",
+        )
+        current_offset += 15
+
+        # Drawing the Box Border around the fine details
+        box_height = current_offset + 5
+        p.setStrokeColorRGB(0.7, 0.7, 0.7)  # Light Gray Color
+        p.rect(50, box_top - box_height, 500, box_height)
+
+        # Updating y for the next block
+        y -= box_height + 20
+
+    p.save()
+    return response
+
+
+# PDF generation for individual student fine report
+@login_required
+@role_required("admin")
+def download_single_fine_report(request, fine_id):
+
+    # Generates a clean & modern PDF report for a single fine transaction
+    fine = get_object_or_404(Fine, pk=fine_id)
+    student = fine.transaction.user
+    book = fine.transaction.book
+    transaction = fine.transaction
+
+    # Serial number sent from the admin fine list template for display in the PDF filename
+    sl_no = request.GET.get("sl", fine.pk)
+
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = (
+        f'attachment; filename="fine_{sl_no}_{student.username}_report.pdf"'
+    )
+
+    # Page Setup (A4 Size)
+    p = canvas.Canvas(response, pagesize=A4)
+    width, height = A4  # 595.27 x 841.89 points
+
+    # Color Palette
+    PRIMARY = colors.HexColor("#0F172A")  # Dark Slate
+    ACCENT = colors.HexColor("#2563EB")  # Modern Blue
+    TEXT_DARK = colors.HexColor("#1E293B")
+    TEXT_MUTED = colors.HexColor("#64748B")
+    BG_LIGHT = colors.HexColor("#F8FAFC")
+    BORDER_COLOR = colors.HexColor("#E2E8F0")
+
+    # Status Badge Color Logic
+    if fine.status == Fine.STATUS_PAID:
+        STATUS_BG = colors.HexColor("#DCFCE7")
+        STATUS_TEXT = colors.HexColor("#166534")
+        status_label = "PAID"
+    else:
+        STATUS_BG = colors.HexColor("#FEE2E2")
+        STATUS_TEXT = colors.HexColor("#991B1B")
+        status_label = "UNPAID"
+
+    # 1. Top Header Banner
+    p.setFillColor(PRIMARY)
+    p.rect(0, height - 90, width, 90, fill=1, stroke=0)
+
+    p.setFillColor(colors.white)
+    p.setFont("Helvetica-Bold", 18)
+    p.drawString(40, height - 42, "SmartLibrary")
+
+    p.setFont("Helvetica", 9)
+    p.setFillColor(colors.HexColor("#94A3B8"))
+    p.drawString(40, height - 60, "OFFICIAL FINE RECEIPT / STATEMENT")
+
+    # Header Right Side Info
+    p.setFont("Helvetica-Bold", 11)
+    p.setFillColor(colors.white)
+    p.drawRightString(width - 40, height - 42, f"REF # {sl_no}")
+
+    p.setFont("Helvetica", 9)
+    p.setFillColor(colors.HexColor("#CBD5E1"))
+    p.drawRightString(
+        width - 40,
+        height - 60,
+        f"Fine Creation Date: {fine.created_at.strftime('%b %d, %Y')}",
+    )
+
+    y = height - 125
+
+    # Helper Function: Section Header Line
+    def draw_section_title(title, current_y):
+        p.setFont("Helvetica-Bold", 11)
+        p.setFillColor(PRIMARY)
+        p.drawString(40, current_y, title)
+
+        p.setStrokeColor(ACCENT)
+        p.setLineWidth(1.5)
+        p.line(40, current_y - 6, width - 40, current_y - 6)
+        return current_y - 25
+
+    # Helper Function: Key-Value Label
+    def draw_row(label, val, x1, x2, current_y):
+        p.setFont("Helvetica-Bold", 9)
+        p.setFillColor(TEXT_MUTED)
+        p.drawString(x1, current_y, label)
+
+        p.setFont("Helvetica", 9.5)
+        p.setFillColor(TEXT_DARK)
+        p.drawString(x2, current_y, str(val))
+
+    # 2. Student Details Section
+    y = draw_section_title("STUDENT INFORMATION", y)
+
+    # Box Card
+    p.setFillColor(BG_LIGHT)
+    p.setStrokeColor(BORDER_COLOR)
+    p.setLineWidth(1)
+    p.roundRect(40, y - 75, width - 80, 75, 6, fill=1, stroke=1)
+
+    box_y = y - 18
+    # Left Column
+    draw_row(
+        "Full Name:",
+        student.get_full_name() or student.username,
+        55,
+        135,
+        box_y,
+    )
+    draw_row("Username:", f"@{student.username}", 55, 135, box_y - 18)
+    draw_row("Student ID:", student.student_id or "-", 55, 135, box_y - 36)
+
+    # Right Column
+    draw_row("Department:", student.department or "-", 320, 400, box_y)
+    draw_row("Email:", student.email or "-", 320, 400, box_y - 18)
+
+    y -= 98
+
+    # 3. Book & Borrowing Details
+    y = draw_section_title("BOOK & BORROWING DETAILS", y)
+
+    p.setFillColor(BG_LIGHT)
+    p.setStrokeColor(BORDER_COLOR)
+    p.roundRect(40, y - 95, width - 80, 95, 6, fill=1, stroke=1)
+
+    box_y = y - 18
+    draw_row("Book Title:", book.title, 55, 135, box_y)
+    draw_row("Author:", book.author or "-", 55, 135, box_y - 18)
+    draw_row(
+        "ISBN / Category:",
+        f"{book.isbn or '-'}   |   {book.category or '-'}",
+        55,
+        135,
+        box_y - 36,
+    )
+
+    issue_str = (
+        transaction.issue_date.strftime("%b %d, %Y")
+        if hasattr(transaction.issue_date, "strftime")
+        else str(transaction.issue_date)
+    )
+    due_str = transaction.due_date.strftime("%b %d, %Y %I:%M %p")
+    draw_row(
+        "Issue / Due Date:",
+        f"{issue_str}   to   {due_str}",
+        55,
+        135,
+        box_y - 54,
+    )
+
+    y -= 118
+
+    # 4. Fine & Payment Summary Card
+    y = draw_section_title("FINE SUMMARY & PAYMENT STATUS", y)
+
+    # Summary Card Box
+    card_height = 80
+    p.setFillColor(BG_LIGHT)
+    p.setStrokeColor(BORDER_COLOR)
+    p.roundRect(40, y - card_height, width - 80, card_height, 6, fill=1, stroke=1)
+
+    # Left Side Amount
+    p.setFont("Helvetica-Bold", 8.5)
+    p.setFillColor(TEXT_MUTED)
+    p.drawString(55, y - 22, "TOTAL FINE AMOUNT")
+
+    p.setFont("Helvetica-Bold", 20)
+    p.setFillColor(PRIMARY)
+    p.drawString(55, y - 52, f"Tk {fine.amount}")
+
+    # Right Side Status Badge
+    badge_w, badge_h = 80, 26
+    badge_x = width - 40 - 15 - badge_w
+    badge_y = y - 48
+
+    p.setFillColor(STATUS_BG)
+    p.setStrokeColor(STATUS_TEXT)
+    p.setLineWidth(0.8)
+    p.roundRect(badge_x, badge_y, badge_w, badge_h, 13, fill=1, stroke=1)
+
+    p.setFont("Helvetica-Bold", 9.5)
+    p.setFillColor(STATUS_TEXT)
+    p.drawCentredString(badge_x + (badge_w / 2), badge_y + 8, status_label)
+
+    # Additional Fine Information Below Card
+    y -= card_height + 18
+
+    draw_row("Reason for Fine:", fine.reason or "-", 55, 155, y)
+    y -= 16
+    return_str = (
+        transaction.return_date.strftime("%b %d, %Y %I:%M %p")
+        if transaction.return_date
+        else "Not returned yet"
+    )
+    draw_row("Return Date:", return_str, 55, 155, y)
+    y -= 16
+    if fine.status == Fine.STATUS_PAID:
+        draw_row("Payment Method:", "Cash", 55, 155, y)
+        y -= 16
+
+    # 5. Footer / System Note
+    p.setStrokeColor(BORDER_COLOR)
+    p.setLineWidth(1)
+    p.line(40, 55, width - 40, 55)
+
+    p.setFont("Helvetica", 8)
+    p.setFillColor(TEXT_MUTED)
+    p.drawString(
+        40,
+        40,
+        "This is an officially generated computer statement. No signature required.",
+    )
+    p.drawRightString(width - 40, 40, "SmartLibrary Management System • Page 1 of 1")
+
+    p.save()
+    return response

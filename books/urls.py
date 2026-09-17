@@ -80,4 +80,12 @@ urlpatterns = [
     ),
     # Chatbot widget API
     path("chatbot/", views.chatbot_view, name="chatbot"),
+    # Route for generating PDF reports
+    path("fines/report/", views.download_fine_report, name="download_fine_report"),
+    # Route for generating PDF reports for individual student's fines
+    path(
+        "fines/<int:fine_id>/report/",
+        views.download_single_fine_report,
+        name="download_single_fine_report",
+    ),
 ]
