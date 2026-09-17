@@ -139,4 +139,3 @@ EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD")  # App_Password
 
 # Gemini AI
 GEMINI_API_KEY = config("GEMINI_API_KEY")
-
