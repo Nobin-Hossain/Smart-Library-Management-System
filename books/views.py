@@ -378,19 +378,27 @@ def approve_borrow_request(request, request_id):
         )
         return redirect("admin_request_list")
 
+    # Calculate or parse due date
+    due_date_str = request.POST.get("due_date")
+    if due_date_str:
+        naive_dt = datetime.datetime.strptime(due_date_str, "%Y-%m-%dT%H:%M")
+        due_date = timezone.make_aware(naive_dt)
+    else:
+        due_date = timezone.now() + datetime.timedelta(days=7)
+
+    # Reject past due dates before creating the transaction
+    if due_date <= timezone.now():
+        messages.error(
+            request,
+            "Due date can not be set in the past. Please select a future date and time.",
+        )
+        return redirect("admin_request_list")
+
     # Wrap the state change + transaction creation in a DB atomic block
     with db_transaction.atomic():
         # Mark the borrow request as approved
         borrow_request.status = BorrowRequest.STATUS_APPROVED
         borrow_request.save(update_fields=["status"])
-
-        # Calculate or parse due date
-        due_date_str = request.POST.get("due_date")
-        if due_date_str:
-            naive_dt = datetime.datetime.strptime(due_date_str, "%Y-%m-%dT%H:%M")
-            due_date = timezone.make_aware(naive_dt)
-        else:
-            due_date = timezone.now() + datetime.timedelta(days=7)
 
         # Create the issue transaction — save() auto-decrements available_copies
         issue = IssueTransaction.objects.create(
