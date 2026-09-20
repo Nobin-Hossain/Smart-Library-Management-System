@@ -12,8 +12,51 @@
             <p class="req-subtitle">Review library fines and mark payments received</p>
         </div>
         <div class="req-header-actions">
-            <a href="{% url 'download_fine_report' %}" class="btn-download" >Download PDF Report</a>
+            {% comment %} <a href="{% url 'download_fine_report' %}" class="btn-download" >Download PDF Report</a> {% endcomment %}
             <span class="role-badge admin">Admin Only</span>
+        </div>
+    </div>
+
+    <!-- Filter Control Panel Card -->
+    <div class="filter-card">
+        <div class="filter-grid">
+            <!-- Quick Filters -->
+            <div class="quick-filter-group">
+                <label class="filter-label">QUICK FILTERS</label>
+                <div class="btn-group-custom">
+                    <a href="{% url 'admin_fine_list' %}?filter=all" class="filter-btn {% if filter_type == 'all' and not start_date %}active{% endif %}">All Time</a>
+                    <a href="{% url 'admin_fine_list' %}?filter=today" class="filter-btn {% if filter_type == 'today' %}active{% endif %}">Today</a>
+                    <a href="{% url 'admin_fine_list' %}?filter=week" class="filter-btn {% if filter_type == 'week' %}active{% endif %}">Last 7 Days</a>
+                    <a href="{% url 'admin_fine_list' %}?filter=month" class="filter-btn {% if filter_type == 'month' %}active{% endif %}">Last 30 Days</a>
+                </div>
+            </div>
+
+            <!-- Custom Date Range Form -->
+            <form method="GET" action="{% url 'admin_fine_list' %}" class="date-filter-form">
+                <div class="date-input-group">
+                    <label for="start_date" class="filter-label">FROM DATE</label>
+                    <input type="date" id="start_date" name="start_date" class="filter-input" value="{{ start_date }}">
+                </div>
+                <div class="date-input-group">
+                    <label for="end_date" class="filter-label">TO DATE</label>
+                    <input type="date" id="end_date" name="end_date" class="filter-input" value="{{ end_date }}">
+                </div>
+                <button type="submit" class="btn-apply-filter">
+                    Apply Filter
+                </button>
+            </form>
+        </div>
+
+        <!-- Total Fine Bar & Download Filtered PDF Button -->
+        <div class="filter-summary-bar">
+            <div class="total-amount-box">
+                <span class="summary-label">Filtered Total Fine:</span>
+                <span class="total-badge">৳{{ total_amount|floatformat:2 }}</span>
+            </div>
+
+            <a href="{% url 'download_fine_report' %}?filter={{ filter_type }}&start_date={{ start_date }}&end_date={{ end_date }}" class="btn-download">
+                Download PDF
+            </a>
         </div>
     </div>
 
@@ -41,14 +84,19 @@
                         <td class="req-id">{{ forloop.counter }}</td>
 
                         <td>
-                            <span class="student-name">{{ fine.transaction.user.username }}</span>
+                            <span class="student-name">
+                                {{ fine.transaction.user.get_full_name|default:fine.transaction.user.username }}
+                            </span><br>
+                            <span class="cell-muted">
+                                ID: {{ fine.transaction.user.student_id|default:"-" }} | @{{ fine.transaction.user.username }}
+                            </span>
                         </td>
 
                         <td>
                             <span class="book-title">{{ fine.transaction.book.title }}</span>
                         </td>
 
-                        <td class="fine-amount">৳{{ fine.amount }}</td>
+                        <td class="fine-amount">৳{{ fine.amount|floatformat:2 }}</td>
 
                         <td>{{ fine.reason }}</td>
 
@@ -76,7 +124,7 @@
                                 </button>
                             </form>
                                 {% endif %}
-                            <a href="{% url 'download_single_fine_report' fine.id %}?sl={{ forloop.counter }}" class="btn-pdf">PDF</a>
+                            <a href="{% url 'download_single_fine_report' fine.pk %}?sl={{ forloop.counter }}" class="btn-pdf">PDF</a>
                             </div>
                         </td>
                     </tr>
@@ -95,7 +143,7 @@
         <div class="req-empty">
             <div class="req-empty-icon">💰</div>
             <h3>No Fines Recorded</h3>
-            <p>No library fines have been issued yet.</p>
+            <p>No library fine records found for the selected filter.</p>
         </div>
         {% endif %}
     </div>
@@ -103,35 +151,6 @@
 </div>
 
 <style>
-    .req-header-actions {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-    }
-
-    .btn-download {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0.5rem 1rem;
-        background-color: #1e293b;
-        color: #ffffff;
-        border-radius: 6px;
-        font-size: 0.85rem;
-        font-weight: 600;
-        text-decoration: none;
-        white-space: nowrap;
-        width: auto;
-        flex-shrink: 0;
-        transition: background-color 0.2s ease;
-        margin-right: 12px;
-    }
-
-    .btn-download:hover {
-        background-color: #0f172a;
-        color: #ffffff;
-    }
-    
     .req-container {
         width: 100%;
         max-width: 1200px;
@@ -145,7 +164,7 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        border-bottom: 1px solid var(--border-color);
+        border-bottom: 1px solid var(--border-color, #e2e8f0);
         padding-bottom: 1rem;
     }
 
@@ -157,15 +176,161 @@
     }
 
     .req-subtitle {
-        color: var(--text-muted);
+        color: #64748b;
         font-size: 0.92rem;
     }
 
-    .req-table-card {
-        background: var(--card-bg);
-        border: 1px solid var(--border-color);
+    /* Filter Control Panel Styling */
+    .filter-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
         border-radius: 12px;
-        box-shadow: var(--shadow);
+        padding: 1.25rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    .filter-grid {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 1.25rem;
+    }
+
+    .filter-label {
+        display: block;
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #64748b;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.4rem;
+        text-transform: uppercase;
+    }
+
+    .btn-group-custom {
+        display: inline-flex;
+        background: #f1f5f9;
+        padding: 3px;
+        border-radius: 8px;
+        gap: 2px;
+    }
+
+    .filter-btn {
+        padding: 0.4rem 0.85rem;
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: #475569;
+        text-decoration: none;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+    }
+
+    .filter-btn:hover {
+        color: #0f172a;
+    }
+
+    .filter-btn.active {
+        background: #ffffff;
+        color: #2563eb;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+    }
+
+    .date-filter-form {
+        display: flex;
+        align-items: flex-end;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+
+    .date-input-group {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .filter-input {
+        padding: 0.4rem 0.6rem;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        outline: none;
+    }
+
+    .filter-input:focus {
+        border-color: #2563eb;
+    }
+
+    .btn-apply-filter {
+        padding: 0.45rem 1rem;
+        background-color: #2563eb;
+        color: #ffffff;
+        border: none;
+        border-radius: 6px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+
+    .btn-apply-filter:hover {
+        background-color: #1d4ed8;
+    }
+
+    .filter-summary-bar {
+        margin-top: 1rem;
+        padding-top: 0.85rem;
+        border-top: 1px solid #f1f5f9;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .total-amount-box {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .summary-label {
+        font-weight: 600;
+        color: #475569;
+        font-size: 0.9rem;
+    }
+
+    .total-badge {
+        background-color: #ef4444;
+        color: #ffffff;
+        padding: 0.25rem 0.6rem;
+        border-radius: 6px;
+        font-weight: 700;
+        font-size: 0.9rem;
+    }
+
+    .btn-download {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.5rem 1rem;
+        background-color: #1e293b;
+        color: #ffffff;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-decoration: none;
+        transition: background-color 0.2s;
+    }
+
+    .btn-download:hover {
+        background-color: #0f172a;
+        color: #ffffff;
+    }
+
+    /* Table Styling */
+    .req-table-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         overflow: hidden;
     }
 
@@ -179,15 +344,14 @@
         border-collapse: collapse;
         text-align: left;
         font-size: 0.92rem;
-        table-layout: auto;
     }
 
     .req-table th {
         background: #f8fafc;
-        color: var(--secondary-color);
+        color: #475569;
         font-weight: 600;
         padding: 0.9rem 1.1rem;
-        border-bottom: 1px solid var(--border-color);
+        border-bottom: 1px solid #e2e8f0;
         text-transform: uppercase;
         font-size: 0.78rem;
         letter-spacing: 0.5px;
@@ -196,7 +360,7 @@
 
     .req-table td {
         padding: 0.95rem 1.1rem;
-        border-bottom: 1px solid var(--border-color);
+        border-bottom: 1px solid #e2e8f0;
         vertical-align: middle;
     }
 
@@ -209,125 +373,126 @@
     }
 
     .req-id {
-        color: var(--text-muted);
+        color: #64748b;
         font-weight: 500;
-        white-space: nowrap;
     }
 
     .cell-muted {
         font-size: 0.8rem;
-        color: var(--text-muted);
-        line-height: 1.4;
+        color: #64748b;
     }
 
-    .student-name {
+    .student-name, .book-title {
         font-weight: 600;
-        color: var(--primary-color);
-        line-height: 1.4;
-    }
-
-    .book-title {
-        font-weight: 600;
-        color: var(--primary-color);
-        line-height: 1.4;
+        color: #0f172a;
     }
 
     .fine-amount {
-        font-weight: 600;
+        font-weight: 700;
+        color: #dc2626;
         white-space: nowrap;
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 0.2rem 0.55rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+
+    .bg-danger {
+        background-color: #fee2e2;
+        color: #991b1b;
+    }
+
+    .bg-success {
+        background-color: #046c28;
+        color: #edf4f0;
     }
 
     .req-date {
         font-size: 0.88rem;
-        color: var(--secondary-color);
+        color: #334155;
         white-space: nowrap;
     }
 
     .req-time {
         font-size: 0.78rem;
-        color: var(--text-muted);
+        color: #64748b;
     }
 
-    .req-actions {
-        white-space: nowrap;
-    }
-
-    .req-actions form {
-        display: inline;
-    }
-
-    /* Arranging the buttons properly */
     .action-btn-group {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.35rem; /* distance between buttons */
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.35rem;
     }
 
     .action-btn-group form {
-    width: 100%;
+        width: 100%;
     }
 
     .btn-approve, .btn-pdf {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%; /* both buttons will have equal width */
-    box-sizing: border-box;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        box-sizing: border-box;
     }
 
     .btn-pdf {
-    padding: 0.25rem 0.65rem;
-    background-color: #f1f5f9;
-    color: #475569;
-    border: 1px solid #cbd5e1;
-    border-radius: 20px;
-    font-size: 0.78rem;
-    font-weight: 600;
-    text-decoration: none;
-    transition: all 0.2s ease;
+        padding: 0.25rem 0.65rem;
+        background-color: #f1f5f9;
+        color: #475569;
+        border: 1px solid #cbd5e1;
+        border-radius: 20px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.2s ease;
     }
 
     .btn-pdf:hover {
-    background-color: #e2e8f0;
-    color: #0f172a;
+        background-color: #e2e8f0;
+        color: #0f172a;
     }
 
     .btn-approve {
-        display: inline-block;
         padding: 0.35rem 0.85rem;
-        background-color: var(--success-bg);
-        color: var(--success-text);
-        border: 1.5px solid var(--success-text);
+        background-color: #dcfce7;
+        color: #15803d;
+        border: 1.5px solid #16a34a;
         border-radius: 20px;
         font-size: 0.8rem;
         font-weight: 600;
         cursor: pointer;
-        transition: var(--transition);
+        transition: all 0.2s ease;
         white-space: nowrap;
     }
 
     .btn-approve:hover {
-        background-color: var(--success-text);
+        background-color: #16a34a;
         color: #ffffff;
     }
 
     .req-footer {
         padding: 0.85rem 1.1rem;
         background: #f8fafc;
-        border-top: 1px solid var(--border-color);
+        border-top: 1px solid #e2e8f0;
     }
 
     .req-count {
         font-size: 0.85rem;
-        color: var(--text-muted);
+        color: #64748b;
         font-weight: 500;
     }
 
     .req-empty {
         padding: 4rem 1.5rem;
         text-align: center;
-        color: var(--text-muted);
+        color: #64748b;
     }
 
     .req-empty-icon {
@@ -338,11 +503,7 @@
     .req-empty h3 {
         font-size: 1.25rem;
         margin-bottom: 0.5rem;
-        color: var(--primary-color);
-    }
-
-    .req-empty p {
-        font-size: 0.92rem;
+        color: #0f172a;
     }
 </style>
 {% endblock %}

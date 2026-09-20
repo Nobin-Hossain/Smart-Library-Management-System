@@ -12,7 +12,9 @@ from django.core.mail import send_mail
 from django.conf import settings
 from reportlab.pdfgen import canvas
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from accounts.decorators import role_required
 from google import genai
@@ -903,24 +905,70 @@ def student_borrow_history(request, user_id):
     )
 
 
+# Filter Helper Function
+def get_filtered_fines(request):
+    filter_type = request.GET.get("filter", "all")
+    start_date_str = request.GET.get("start_date", "").strip()
+    end_date_str = request.GET.get("end_date", "").strip()
+
+    fines = Fine.objects.select_related(
+        "transaction__user", "transaction__book"
+    ).order_by("-created_at")
+    now = timezone.now()
+    report_title = "ALL FINES STATEMENT"
+
+    # Custom Date Range Filtering
+    if start_date_str and end_date_str:
+        try:
+            start_date = datetime.datetime.strptime(start_date_str, "%Y-%m-%d").date()
+            end_date = datetime.datetime.strptime(end_date_str, "%Y-%m-%d").date()
+            fines = fines.filter(
+                created_at__date__gte=start_date,
+                created_at__date__lte=end_date,
+            )
+            report_title = f"FINES STATEMENT ({start_date.strftime('%b %d, %Y')} - {end_date.strftime('%b %d, %Y')})"
+        except ValueError:
+            pass
+    elif start_date_str:
+        try:
+            single_date = datetime.datetime.strptime(start_date_str, "%Y-%m-%d").date()
+            fines = fines.filter(created_at__date=single_date)
+            report_title = f"FINES STATEMENT ({single_date.strftime('%b %d, %Y')})"
+        except ValueError:
+            pass
+    # Preset Filters
+    elif filter_type == "today":
+        fines = fines.filter(created_at__date=now.date())
+        report_title = "TODAY'S FINES STATEMENT"
+    elif filter_type == "week":
+        fines = fines.filter(created_at__gte=now - datetime.timedelta(days=7))
+        report_title = "LAST 7 DAYS FINES STATEMENT"
+    elif filter_type == "month":
+        fines = fines.filter(created_at__gte=now - datetime.timedelta(days=30))
+        report_title = "LAST 30 DAYS FINES STATEMENT"
+
+    return fines, filter_type, start_date_str, end_date_str, report_title
+
+
 @login_required
 @role_required("admin")
 def admin_fine_list(request):
     """
-    Admin view listing all library fines.
+    Admin view listing all library fines with date filter support.
     Admins can mark unpaid fines as paid from this page.
     """
-    fines = (
-        Fine.objects.select_related("transaction__user", "transaction__book")
-        .all()
-        .order_by("-created_at")
-    )
+    fines, filter_type, start_date, end_date, _ = get_filtered_fines(request)
+    total_amount = fines.aggregate(total=Sum("amount"))["total"] or 0
 
     return render(
         request,
         "books/admin_fine_list.html",
         {
             "fines": fines,
+            "total_amount": total_amount,
+            "filter_type": filter_type,
+            "start_date": start_date,
+            "end_date": end_date,
         },
     )
 
@@ -1277,7 +1325,7 @@ def get_bot_response(message, user):
         return "You have no books currently borrowed."
 
     # --- Reservations ---
-    if "reservation" in msg:
+    if "reservation" in msg or "reserved" in msg:
         reservation = Reservation.objects.filter(
             user=user,
             status__in=[Reservation.STATUS_WAITING, Reservation.STATUS_NOTIFIED],
@@ -1317,7 +1365,7 @@ def get_bot_response(message, user):
 
     # --- Available books ---
     if "available" in msg:
-        available_books = Book.objects.filter(available_copies__gt=0)[:5]
+        available_books = Book.objects.filter(available_copies__gt=0)
         if available_books:
             titles = ", ".join(f'"{b.title}"' for b in available_books)
             return f"Here are some available books: {titles}."
@@ -1389,113 +1437,205 @@ def chatbot_view(request):
 @login_required
 @role_required("admin")
 def download_fine_report(request):
-    # generates a pdf report of all fines with student, book and fine info
+    """
+    Generates a tabular PDF fine statement using ReportLab based on
+    the parameters returned by the get_filtered_fines helper function.
+    """
+    # Collecting Data from get_filtered_fines helper function
+    fines, filter_type, start_date, end_date, report_title = get_filtered_fines(request)
+
+    # Setting the file name for download
+    filename_tag = filter_type if not start_date else "custom_range"
     response = HttpResponse(content_type="application/pdf")
-    response["Content-Disposition"] = 'attachment; filename="fine_report.pdf"'
+    response["Content-Disposition"] = (
+        f'attachment; filename="fine_statement_{filename_tag}.pdf"'
+    )
 
-    # Time of pdf download for display in the report header
+    # A4 Landscape Page setup with Margins
+    doc = SimpleDocTemplate(
+        response,
+        pagesize=landscape(A4),
+        rightMargin=30,
+        leftMargin=30,
+        topMargin=30,
+        bottomMargin=30,
+    )
+
+    elements = []
+    styles = getSampleStyleSheet()
+
+    # Custom Text Style
+    title_style = ParagraphStyle(
+        "TitleStyle",
+        parent=styles["Heading1"],
+        fontSize=16,
+        leading=20,
+        textColor=colors.HexColor("#1E293B"),
+    )
+    meta_style = ParagraphStyle(
+        "MetaStyle",
+        parent=styles["Normal"],
+        fontSize=9,
+        leading=12,
+        alignment=2,  # Right align
+        textColor=colors.HexColor("#64748B"),
+    )
+    cell_style = ParagraphStyle(
+        "CellStyle",
+        parent=styles["Normal"],
+        fontSize=8,
+        leading=11,
+        textColor=colors.HexColor("#334155"),
+    )
+    header_cell_style = ParagraphStyle(
+        "HeaderCellStyle",
+        parent=styles["Normal"],
+        fontSize=9,
+        leading=11,
+        fontName="Helvetica-Bold",
+        textColor=colors.white,
+    )
+
+    # Document Header (Title and Meta Info)
     download_time_str = timezone.localtime().strftime("%b %d, %Y %I:%M %p")
+    header_data = [
+        [
+            Paragraph(f"<b>SmartLibrary</b><br/>{report_title}", title_style),
+            Paragraph(
+                f"<b>Downloaded On:</b> {download_time_str}<br/><b>Total Records:</b> {fines.count()}",
+                meta_style,
+            ),
+        ]
+    ]
+    header_table = Table(header_data, colWidths=[480, 300])
+    header_table.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
+    elements.append(header_table)
+    elements.append(Spacer(1, 15))
 
-    p = canvas.Canvas(response)
-    y = 800
+    # Column Header Row (Dark Navy Header)
+    table_data = [
+        [
+            Paragraph("SL", header_cell_style),
+            Paragraph("Student Info", header_cell_style),
+            Paragraph("Book Details", header_cell_style),
+            Paragraph("Issue / Due / Return Date", header_cell_style),
+            Paragraph("Fine Amount", header_cell_style),
+            Paragraph("Status", header_cell_style),
+            Paragraph("Fine Date", header_cell_style),
+        ]
+    ]
 
-    p.setFont("Helvetica-Bold", 14)
-    p.drawString(50, y, "SmartLibrary - Fine Report")
-    y -= 30
-
-    # Showing the download time in the Header of the PDF
-    p.setFont("Helvetica", 9)
-    p.setFillColorRGB(0.4, 0.4, 0.4)
-    p.drawRightString(550, y, f"Downloaded On: {download_time_str}")
-    p.setFillColorRGB(0, 0, 0)
-
-    y -= 30
-
-    fines = Fine.objects.select_related("transaction__user", "transaction__book").all()
-
-    for fine in fines:
-        # Start a new page if we're running out of space
-        if y < 220:
-            p.showPage()
-            p.setFont("Helvetica", 10)  # Reset font for new page
-            y = 800
-
+    # Dynamic Data Rows Loop + Total Fine Calculation
+    total_amount = 0
+    for idx, fine in enumerate(fines, start=1):
         student = fine.transaction.user
         book = fine.transaction.book
-        transaction = fine.transaction
+        tx = fine.transaction
 
-        # Saving the top position of the box for drawing a separator line later
-        box_top = y
+        total_amount += fine.amount
 
-        # Student Details
-        p.setFont("Helvetica", 10)
-        p.drawString(
-            60,
-            y - 15,
-            f"Student: {student.get_full_name() or student.username} (@{student.username})",
+        # Safe Date Formatting with Local Time
+        issue_str = (
+            tx.issue_date.strftime("%b %d, %Y")
+            if hasattr(tx.issue_date, "strftime")
+            else str(tx.issue_date or "-")
         )
-        p.drawString(60, y - 30, f"Student ID: {student.student_id or '-'}")
-        p.drawString(
-            60,
-            y - 45,
-            f"Department: {student.department or '-'}  |  Email: {student.email}",
+        due_str = (
+            timezone.localtime(tx.due_date).strftime("%b %d, %Y %I:%M %p")
+            if tx.due_date
+            else "-"
         )
-
-        # Book Details
-        p.drawString(60, y - 60, f"Book: {book.title} by {book.author}")
-        p.drawString(60, y - 75, f"ISBN: {book.isbn}  |  Category: {book.category}")
-
-        # Issue, Due & Return Date fixed in local time
-        if hasattr(transaction.issue_date, "strftime"):
-            issue_str = transaction.issue_date.strftime("%b %d, %Y")
-        else:
-            issue_str = str(transaction.issue_date or "-")
-
-        due_str = timezone.localtime(transaction.due_date).strftime(
-            "%b %d, %Y %I:%M %p"
-        )
-
         return_str = (
-            timezone.localtime(transaction.return_date).strftime("%b %d, %Y %I:%M %p")
-            if transaction.return_date
-            else "Not returned yet"
+            timezone.localtime(tx.return_date).strftime("%b %d, %Y %I:%M %p")
+            if tx.return_date
+            else "Not returned"
         )
-
-        p.drawString(60, y - 90, f"Issue Date: {issue_str}")
-        p.drawString(60, y - 105, f"Due Date: {due_str}")
-        p.drawString(60, y - 120, f"Return Date: {return_str}")
-
-        # Fine Details
-        p.drawString(
-            60,
-            y - 135,
-            f"Fine Amount: Tk {fine.amount}  |  Status: {fine.status}",
-        )
-        p.drawString(60, y - 150, f"Reason: {fine.reason}")
-
-        current_offset = 165
-        if fine.status == Fine.STATUS_PAID:
-            p.drawString(60, y - current_offset, "Payment Method : Cash")
-            current_offset += 15
-
-        # Fine Created At fixed in Local Time
         created_str = timezone.localtime(fine.created_at).strftime("%b %d, %Y %I:%M %p")
-        p.drawString(
-            60,
-            y - current_offset,
-            f"Fine Created: {created_str}",
+
+        student_info = (
+            f"<b>{student.get_full_name() or student.username}</b><br/>"
+            f"ID: {getattr(student, 'student_id', '-') or '-'}<br/>"
+            f"@{student.username}"
         )
-        current_offset += 15
+        book_info = (
+            f"<b>{book.title}</b><br/>"
+            f"By {book.author}<br/>"
+            f"ISBN: {getattr(book, 'isbn', '-')}"
+        )
+        dates_info = (
+            f"Issued: {issue_str}<br/>" f"Due: {due_str}<br/>" f"Returned: {return_str}"
+        )
 
-        # Drawing the Box Border around the fine details
-        box_height = current_offset + 5
-        p.setStrokeColorRGB(0.7, 0.7, 0.7)  # Light Gray Color
-        p.rect(50, box_top - box_height, 500, box_height)
+        row = [
+            Paragraph(str(idx), cell_style),
+            Paragraph(student_info, cell_style),
+            Paragraph(book_info, cell_style),
+            Paragraph(dates_info, cell_style),
+            Paragraph(f"Tk {fine.amount:.2f}", cell_style),
+            Paragraph(fine.status, cell_style),
+            Paragraph(created_str, cell_style),
+        ]
+        table_data.append(row)
 
-        # Updating y for the next block
-        y -= box_height + 20
+    # Bottom Summary Row (Showing Total Fine)
+    summary_cell_style = ParagraphStyle(
+        "SummaryStyle", parent=cell_style, fontName="Helvetica-Bold"
+    )
+    table_data.append(
+        [
+            Paragraph("<b>TOTAL FINE AMOUNT</b>", summary_cell_style),
+            Paragraph("", cell_style),
+            Paragraph("", cell_style),
+            Paragraph("", cell_style),
+            Paragraph(f"<b>Tk {total_amount:.2f}</b>", summary_cell_style),
+            Paragraph("", cell_style),
+            Paragraph("", cell_style),
+        ]
+    )
 
-    p.save()
+    # Table's Widths and Styling
+    col_widths = [30, 160, 180, 170, 80, 70, 90]
+    fine_table = Table(table_data, colWidths=col_widths, repeatRows=1)
+
+    ts = [
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1E293B")),
+        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
+        ("TOPPADDING", (0, 0), (-1, 0), 8),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E1")),
+        ("TOPPADDING", (0, 1), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 1), (-1, -1), 6),
+    ]
+
+    # Zebra striping for better readability (Alternating light gray background in rows)
+    for i in range(1, len(table_data) - 1):
+        if i % 2 == 0:
+            ts.append(
+                (
+                    "BACKGROUND",
+                    (0, i),
+                    (-1, i),
+                    colors.HexColor("#F8FAFC"),
+                )
+            )
+
+    # Cell merging & styling for the summary row
+    ts.append(
+        (
+            "BACKGROUND",
+            (0, -1),
+            (-1, -1),
+            colors.HexColor("#E2E8F0"),
+        )
+    )
+    ts.append(("SPAN", (0, -1), (3, -1)))
+
+    fine_table.setStyle(TableStyle(ts))
+    elements.append(fine_table)
+
+    # generating the PDF file and sending it as a response
+    doc.build(elements)
     return response
 
 
