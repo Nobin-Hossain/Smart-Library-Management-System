@@ -321,9 +321,7 @@ class Reservation(models.Model):
         return hours > total_deadline_hours
 
 
-# ---------------------------------------------------------------------------
 # Chatbot
-# ---------------------------------------------------------------------------
 
 
 class ChatMessage(models.Model):

@@ -33,17 +33,13 @@ from .forms import BookForm
 
 User = get_user_model()
 
-# ---------------------------------------------------------------------------
+
 # Gemini AI — module-level client (new google-genai SDK, runs once at import)
-# ---------------------------------------------------------------------------
 
 gemini_client = genai.Client(api_key=settings.GEMINI_API_KEY)
 GEMINI_MODEL = "gemini-3.6-flash"
 
-
-# ---------------------------------------------------------------------------
 # Librarian Dashboard
-# ---------------------------------------------------------------------------
 
 
 @login_required
@@ -86,9 +82,7 @@ def librarian_dashboard(request):
     return render(request, "accounts/dashboard_librarian.html", context)
 
 
-# ---------------------------------------------------------------------------
 # Book CRUD
-# ---------------------------------------------------------------------------
 
 
 @login_required
@@ -170,9 +164,7 @@ def book_delete(request, pk):
     return render(request, "books/book_confirm_delete.html", {"book": book})
 
 
-# ---------------------------------------------------------------------------
 # Student Book Catalog
-# ---------------------------------------------------------------------------
 
 
 @login_required
@@ -212,9 +204,7 @@ def book_list_user(request):
     return render(request, "books/book_list_user.html", context)
 
 
-# ---------------------------------------------------------------------------
 # Borrow Request Workflow
-# ---------------------------------------------------------------------------
 
 
 @login_required
@@ -538,9 +528,7 @@ def user_notifications(request):
     )
 
 
-# ---------------------------------------------------------------------------
 # Student Book Return Flow & Admin Return Request Management
-# ---------------------------------------------------------------------------
 
 
 @login_required
@@ -1065,9 +1053,7 @@ def create_reservation(request, book_id):
     return redirect("book_list_user")
 
 
-# ---------------------------------------------------------------------------
 # Student: My Reservations
-# ---------------------------------------------------------------------------
 
 
 @login_required
@@ -1108,9 +1094,7 @@ def my_reservations(request):
     )
 
 
-# ---------------------------------------------------------------------------
 # Admin: Reservation Queue Management
-# ---------------------------------------------------------------------------
 
 
 @login_required
@@ -1276,14 +1260,12 @@ def expire_reservation(request, reservation_id):
     return redirect("admin_reservation_list")
 
 
-# ---------------------------------------------------------------------------
 # Chatbot
-# ---------------------------------------------------------------------------
 
 
 def get_bot_response(message, user):
     """
-    Database-first chatbot response helper.
+    Database-first chatbot response.
 
     Checks the message against known keywords and queries the database to
     build a personalised answer. Falls back to Gemini for all other queries.
